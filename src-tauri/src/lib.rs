@@ -7,7 +7,8 @@ mod storage;
 
 pub use domain::valid_key;
 pub use models::{
-    ImportPreview, ImportResult, InvalidImportLine, SaveVariableInput, Shell, ShellIntegration, Variable,
+    ImportPreview, ImportResult, InvalidImportLine, SaveVariableInput, Shell, ShellIntegration,
+    Variable,
 };
 
 pub fn run() {
@@ -23,9 +24,7 @@ mod tests {
         managed_block_range, managed_shell_block, replace_managed_block, shell_quote,
         SHELL_BLOCK_END, SHELL_BLOCK_START,
     };
-    use crate::storage::{
-        atomic_write_using, commit_import_at, load_store, save_store, STORE_FILE,
-    };
+    use crate::storage::{atomic_write_using, commit_import_at, load_store, save_store, STORE_FILE};
     use std::collections::BTreeMap;
     use std::fs;
     use std::os::unix::fs::PermissionsExt;
@@ -37,7 +36,7 @@ mod tests {
         for key in ["A", "_private", "PATH", "HOME_2"] {
             assert!(valid_key(key), "{key} should be valid");
         }
-        for key in ["", "2FAST", "HAS-DASH", "WITH SPACE", "é" ] {
+        for key in ["", "2FAST", "HAS-DASH", "WITH SPACE", "é"] {
             assert!(!valid_key(key), "{key} should be invalid");
         }
     }
@@ -45,11 +44,14 @@ mod tests {
     #[test]
     fn rejects_nul_values_in_crud_and_import() {
         let mut variables = BTreeMap::new();
-        let saved = apply_save(&mut variables, SaveVariableInput {
-            key: "TOKEN".to_string(),
-            value: "before\0after".to_string(),
-            original_key: None,
-        });
+        let saved = apply_save(
+            &mut variables,
+            SaveVariableInput {
+                key: "TOKEN".to_string(),
+                value: "before\0after".to_string(),
+                original_key: None,
+            },
+        );
         assert!(saved.is_err());
         assert!(variables.is_empty());
 
@@ -79,8 +81,16 @@ mod tests {
     #[test]
     fn shell_integration_contract_uses_the_required_names() {
         let integrations = vec![
-            ShellIntegration { shell: Shell::Bash, enabled: true, startup_file: Shell::Bash.startup_file() },
-            ShellIntegration { shell: Shell::Zsh, enabled: false, startup_file: Shell::Zsh.startup_file() },
+            ShellIntegration {
+                shell: Shell::Bash,
+                enabled: true,
+                startup_file: Shell::Bash.startup_file(),
+            },
+            ShellIntegration {
+                shell: Shell::Zsh,
+                enabled: false,
+                startup_file: Shell::Zsh.startup_file(),
+            },
         ];
         assert_eq!(
             serde_json::to_value(integrations).unwrap(),
@@ -137,7 +147,10 @@ mod tests {
         let parsed = parse_env("NOT AN ASSIGNMENT\nBAD-KEY=secret-value\nOPEN=\"unfinished\n");
         assert_eq!(parsed.invalid_lines.len(), 3);
         assert_eq!(parsed.invalid_lines[0].line, 1);
-        assert!(!parsed.invalid_lines.iter().any(|line| line.message.contains("secret-value")));
+        assert!(!parsed
+            .invalid_lines
+            .iter()
+            .any(|line| line.message.contains("secret-value")));
     }
 
     #[test]
@@ -153,19 +166,43 @@ mod tests {
             ("FIRST".to_string(), "one".to_string()),
             ("SECOND".to_string(), "two".to_string()),
         ]);
-        assert!(apply_save(&mut variables, SaveVariableInput {
-            key: "SECOND".to_string(), value: "overwrite".to_string(), original_key: None,
-        }).is_err());
-        apply_save(&mut variables, SaveVariableInput {
-            key: "FIRST".to_string(), value: "updated".to_string(), original_key: Some("FIRST".to_string()),
-        }).unwrap();
+        assert!(apply_save(
+            &mut variables,
+            SaveVariableInput {
+                key: "SECOND".to_string(),
+                value: "overwrite".to_string(),
+                original_key: None,
+            },
+        )
+        .is_err());
+        apply_save(
+            &mut variables,
+            SaveVariableInput {
+                key: "FIRST".to_string(),
+                value: "updated".to_string(),
+                original_key: Some("FIRST".to_string()),
+            },
+        )
+        .unwrap();
         assert_eq!(variables["FIRST"], "updated");
-        assert!(apply_save(&mut variables, SaveVariableInput {
-            key: "SECOND".to_string(), value: "collision".to_string(), original_key: Some("FIRST".to_string()),
-        }).is_err());
-        apply_save(&mut variables, SaveVariableInput {
-            key: "RENAMED".to_string(), value: "renamed".to_string(), original_key: Some("FIRST".to_string()),
-        }).unwrap();
+        assert!(apply_save(
+            &mut variables,
+            SaveVariableInput {
+                key: "SECOND".to_string(),
+                value: "collision".to_string(),
+                original_key: Some("FIRST".to_string()),
+            },
+        )
+        .is_err());
+        apply_save(
+            &mut variables,
+            SaveVariableInput {
+                key: "RENAMED".to_string(),
+                value: "renamed".to_string(),
+                original_key: Some("FIRST".to_string()),
+            },
+        )
+        .unwrap();
         assert!(!variables.contains_key("FIRST"));
         assert_eq!(variables["RENAMED"], "renamed");
     }
@@ -199,7 +236,10 @@ mod tests {
         let original = BTreeMap::from([("EXISTING".to_string(), "old".to_string())]);
         save_store(&path, &original).unwrap();
         let parsed = parse_env("EXISTING=new\nNEW=value\n");
-        let batch = PendingImport { variables: parsed.variables, invalid_lines: parsed.invalid_lines };
+        let batch = PendingImport {
+            variables: parsed.variables,
+            invalid_lines: parsed.invalid_lines,
+        };
         let result = commit_import_at(&path, &batch).unwrap();
         assert_eq!(result.added, vec!["NEW"]);
         assert_eq!(result.updated, vec!["EXISTING"]);
@@ -234,7 +274,10 @@ mod tests {
         let original = BTreeMap::from([("KEEP".to_string(), "old".to_string())]);
         save_store(&path, &original).unwrap();
         let parsed = parse_env("NEW=value\nmalformed\n");
-        let batch = PendingImport { variables: parsed.variables, invalid_lines: parsed.invalid_lines };
+        let batch = PendingImport {
+            variables: parsed.variables,
+            invalid_lines: parsed.invalid_lines,
+        };
         assert!(commit_import_at(&path, &batch).is_err());
         assert_eq!(load_store(&path).unwrap(), original);
     }
@@ -245,7 +288,10 @@ mod tests {
         let path = directory.path().join(STORE_FILE);
         fs::write(&path, "previous store").unwrap();
         let failed_replace = atomic_write_using(&path, b"new store", |_temporary, _destination| {
-            Err(std::io::Error::new(std::io::ErrorKind::PermissionDenied, "test failure"))
+            Err(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "test failure",
+            ))
         });
         assert!(failed_replace.is_err());
         assert_eq!(fs::read_to_string(&path).unwrap(), "previous store");

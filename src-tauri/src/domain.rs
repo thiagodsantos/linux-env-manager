@@ -90,7 +90,10 @@ pub(crate) fn parse_env(contents: &str) -> ParsedEnv {
     parsed
 }
 
-pub(crate) fn merge_import(existing: &Variables, incoming: &Variables) -> (Variables, ImportResult) {
+pub(crate) fn merge_import(
+    existing: &Variables,
+    incoming: &Variables,
+) -> (Variables, ImportResult) {
     let mut merged = existing.clone();
     let mut result = ImportResult {
         added: Vec::new(),

@@ -1,5 +1,7 @@
 use crate::domain::{merge_import, parse_env};
-use crate::models::{ImportPreview, ImportResult, PendingImport, SaveVariableInput, Shell, Variable};
+use crate::models::{
+    ImportPreview, ImportResult, PendingImport, SaveVariableInput, Shell, Variable,
+};
 use crate::shell::{
     get_shell_integrations as shell_integrations,
     set_shell_integration as update_shell_integration,
@@ -90,7 +92,9 @@ async fn preview_import(
     state
         .pending_imports
         .lock()
-        .map_err(|_| "Import preview state is unavailable. Restart the app and try again.".to_string())?
+        .map_err(|_| {
+            "Import preview state is unavailable. Restart the app and try again.".to_string()
+        })?
         .insert(
             token,
             PendingImport {
@@ -106,7 +110,9 @@ fn discard_import(state: State<'_, AppState>, token: String) -> Result<(), Strin
     state
         .pending_imports
         .lock()
-        .map_err(|_| "Import preview state is unavailable. Restart the app and try again.".to_string())?
+        .map_err(|_| {
+            "Import preview state is unavailable. Restart the app and try again.".to_string()
+        })?
         .remove(&token);
     Ok(())
 }
@@ -122,7 +128,9 @@ fn apply_import(
     let mut pending = state
         .pending_imports
         .lock()
-        .map_err(|_| "Import preview state is unavailable. Restart the app and try again.".to_string())?;
+        .map_err(|_| {
+            "Import preview state is unavailable. Restart the app and try again.".to_string()
+        })?;
     let batch = pending
         .get(&token)
         .cloned()
