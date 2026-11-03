@@ -9,15 +9,15 @@ use std::process::Command;
 use tauri::{AppHandle, Manager};
 use uuid::Uuid;
 
-pub(crate) const SHELL_BLOCK_START: &[u8] = b"# >>> linux-env-manager managed shell integration >>>";
+pub(crate) const SHELL_BLOCK_START: &[u8] =
+    b"# >>> linux-env-manager managed shell integration >>>";
 pub(crate) const SHELL_BLOCK_END: &[u8] = b"# <<< linux-env-manager managed shell integration <<<";
-
 
 pub(crate) fn shell_quote(value: &str) -> String {
     if !value.is_empty()
-        && value.chars().all(|character| {
-            character.is_ascii_alphanumeric() || "_@%+=:,./-".contains(character)
-        })
+        && value
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || "_@%+=:,./-".contains(character))
     {
         return value.to_string();
     }
@@ -43,7 +43,8 @@ except (OSError, ValueError, TypeError, AttributeError):
     pass
 "#;
 
-    let store_path = store_path.to_str()
+    let store_path = store_path
+        .to_str()
         .ok_or_else(|| "The application variable store path is not valid UTF-8.".to_string())?;
     Ok(format!(
         "{}\nif command -v python3 >/dev/null 2>&1; then\n  eval \"$(python3 -c {} {})\"\nfi\n{}\n",
@@ -64,11 +65,17 @@ pub(crate) fn managed_block_range(contents: &[u8]) -> Result<Option<Range<usize>
         marker = marker.strip_suffix(b"\r").unwrap_or(marker);
         if marker == SHELL_BLOCK_START {
             if start.replace(offset).is_some() {
-                return Err("The shell startup file contains duplicate managed integration markers.".to_string());
+                return Err(
+                    "The shell startup file contains duplicate managed integration markers."
+                        .to_string(),
+                );
             }
         } else if marker == SHELL_BLOCK_END {
             if end.replace(offset + line.len()).is_some() {
-                return Err("The shell startup file contains duplicate managed integration markers.".to_string());
+                return Err(
+                    "The shell startup file contains duplicate managed integration markers."
+                        .to_string(),
+                );
             }
         }
         offset += line.len();
@@ -77,11 +84,17 @@ pub(crate) fn managed_block_range(contents: &[u8]) -> Result<Option<Range<usize>
     match (start, end) {
         (None, None) => Ok(None),
         (Some(start), Some(end)) if start < end => Ok(Some(start..end)),
-        _ => Err("The shell startup file contains an incomplete or misplaced managed integration block.".to_string()),
+        _ => Err(
+            "The shell startup file contains an incomplete or misplaced managed integration block."
+                .to_string(),
+        ),
     }
 }
 
-pub(crate) fn replace_managed_block(contents: &[u8], replacement: Option<&[u8]>) -> Result<Vec<u8>, String> {
+pub(crate) fn replace_managed_block(
+    contents: &[u8],
+    replacement: Option<&[u8]>,
+) -> Result<Vec<u8>, String> {
     let Some(range) = managed_block_range(contents)? else {
         let Some(replacement) = replacement else {
             return Ok(contents.to_vec());
@@ -106,7 +119,9 @@ pub(crate) fn replace_managed_block(contents: &[u8], replacement: Option<&[u8]>)
 }
 
 fn shell_startup_path(app: &AppHandle, shell: Shell) -> Result<PathBuf, String> {
-    let home = app.path().home_dir()
+    let home = app
+        .path()
+        .home_dir()
         .map_err(|_| "Unable to locate the current user's home directory.".to_string())?;
     Ok(home.join(shell.filename()))
 }
@@ -118,10 +133,12 @@ fn shell_integration_enabled(path: &Path) -> Result<bool, String> {
         Err(_) => return Err("Unable to inspect the shell startup file.".to_string()),
     };
     if metadata.file_type().is_symlink() || !metadata.is_file() {
-        return Err("The shell startup file must be a regular, non-symbolic-link file.".to_string());
+        return Err(
+            "The shell startup file must be a regular, non-symbolic-link file.".to_string(),
+        );
     }
-    let contents = fs::read(path)
-        .map_err(|_| "Unable to read the shell startup file.".to_string())?;
+    let contents =
+        fs::read(path).map_err(|_| "Unable to read the shell startup file.".to_string())?;
     Ok(managed_block_range(&contents)?.is_some())
 }
 
@@ -129,14 +146,17 @@ fn atomic_write_startup_file(path: &Path, bytes: &[u8]) -> Result<(), String> {
     let metadata = match fs::symlink_metadata(path) {
         Ok(metadata) => {
             if metadata.file_type().is_symlink() || !metadata.is_file() {
-                return Err("The shell startup file must be a regular, non-symbolic-link file.".to_string());
+                return Err(
+                    "The shell startup file must be a regular, non-symbolic-link file.".to_string(),
+                );
             }
             Some(metadata)
         }
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
         Err(_) => return Err("Unable to inspect the shell startup file.".to_string()),
     };
-    let parent = path.parent()
+    let parent = path
+        .parent()
         .ok_or_else(|| "Unable to determine the shell startup directory.".to_string())?;
     let temporary = parent.join(format!(".linux-env-manager-{}.tmp", Uuid::new_v4()));
 
@@ -144,7 +164,10 @@ fn atomic_write_startup_file(path: &Path, bytes: &[u8]) -> Result<(), String> {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            metadata.as_ref().map(|metadata| metadata.permissions().mode() & 0o777).unwrap_or(0o600)
+            metadata
+                .as_ref()
+                .map(|metadata| metadata.permissions().mode() & 0o777)
+                .unwrap_or(0o600)
         }
         #[cfg(not(unix))]
         {
@@ -158,9 +181,14 @@ fn atomic_write_startup_file(path: &Path, bytes: &[u8]) -> Result<(), String> {
         use std::os::unix::fs::OpenOptionsExt;
         options.mode(mode);
     }
-    let mut file = options.open(&temporary)
+    let mut file = options
+        .open(&temporary)
         .map_err(|_| "Unable to create a temporary shell startup file.".to_string())?;
-    if file.write_all(bytes).and_then(|()| file.sync_all()).is_err() {
+    if file
+        .write_all(bytes)
+        .and_then(|()| file.sync_all())
+        .is_err()
+    {
         drop(file);
         let _ = fs::remove_file(&temporary);
         return Err("Unable to write the shell startup file.".to_string());
@@ -200,7 +228,8 @@ pub(crate) fn set_shell_integration_at(
     enabled: bool,
 ) -> Result<(), String> {
     let block = if enabled {
-        let store_path = store_path.ok_or_else(|| "Unable to locate the variable store.".to_string())?;
+        let store_path =
+            store_path.ok_or_else(|| "Unable to locate the variable store.".to_string())?;
         Some(managed_shell_block(store_path)?.into_bytes())
     } else {
         None
@@ -208,7 +237,9 @@ pub(crate) fn set_shell_integration_at(
     let existing = match fs::symlink_metadata(startup_path) {
         Ok(metadata) => {
             if metadata.file_type().is_symlink() || !metadata.is_file() {
-                return Err("The shell startup file must be a regular, non-symbolic-link file.".to_string());
+                return Err(
+                    "The shell startup file must be a regular, non-symbolic-link file.".to_string(),
+                );
             }
             fs::read(startup_path)
                 .map_err(|_| "Unable to read the shell startup file.".to_string())?
@@ -245,7 +276,9 @@ pub(crate) fn set_shell_integration(
 ) -> Result<(), String> {
     let _guard = lock_store(&state)?;
     if enabled && !python3_available() {
-        return Err("Python 3 is required for shell integration. Install python3 and retry.".to_string());
+        return Err(
+            "Python 3 is required for shell integration. Install python3 and retry.".to_string(),
+        );
     }
     let startup_path = shell_startup_path(&app, shell)?;
     if enabled {

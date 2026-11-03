@@ -24,7 +24,9 @@ mod tests {
         managed_block_range, managed_shell_block, replace_managed_block, shell_quote,
         SHELL_BLOCK_END, SHELL_BLOCK_START,
     };
-    use crate::storage::{atomic_write_using, commit_import_at, load_store, save_store, STORE_FILE};
+    use crate::storage::{
+        atomic_write_using, commit_import_at, load_store, save_store, STORE_FILE,
+    };
     use std::collections::BTreeMap;
     use std::fs;
     use std::os::unix::fs::PermissionsExt;
@@ -57,14 +59,20 @@ mod tests {
 
         let parsed = parse_env("TOKEN=before\0after\nGOOD=value\n");
         assert_eq!(parsed.invalid_lines.len(), 1);
-        assert_eq!(parsed.variables.get("GOOD").map(String::as_str), Some("value"));
+        assert_eq!(
+            parsed.variables.get("GOOD").map(String::as_str),
+            Some("value")
+        );
         assert!(!parsed.invalid_lines[0].message.contains("before"));
     }
 
     #[test]
     fn shell_quoting_handles_spaces_quotes_and_shell_syntax() {
         assert_eq!(shell_quote("plain/path"), "plain/path");
-        assert_eq!(shell_quote("a'b $(touch unsafe)"), "'a'\\''b $(touch unsafe)'");
+        assert_eq!(
+            shell_quote("a'b $(touch unsafe)"),
+            "'a'\\''b $(touch unsafe)'"
+        );
     }
 
     #[test]
@@ -132,9 +140,8 @@ mod tests {
 
     #[test]
     fn parses_comments_export_quotes_and_values_with_equals() {
-        let parsed = parse_env(
-            "# comment\n\nA=one=two\nexport B='quoted value'\nC=\"$A\"\nEMPTY=\"\"\n",
-        );
+        let parsed =
+            parse_env("# comment\n\nA=one=two\nexport B='quoted value'\nC=\"$A\"\nEMPTY=\"\"\n");
         assert!(parsed.invalid_lines.is_empty());
         assert_eq!(parsed.variables["A"], "one=two");
         assert_eq!(parsed.variables["B"], "quoted value");
@@ -255,14 +262,21 @@ mod tests {
         let variables = BTreeMap::from([("TOKEN".to_string(), "secret".to_string())]);
         save_store(&path, &variables).unwrap();
         assert_eq!(load_store(&path).unwrap(), variables);
-        assert_eq!(fs::metadata(path).unwrap().permissions().mode() & 0o777, 0o600);
+        assert_eq!(
+            fs::metadata(path).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
     }
 
     #[test]
     fn store_loader_rejects_legacy_nul_values() {
         let directory = tempdir().unwrap();
         let path = directory.path().join(STORE_FILE);
-        fs::write(&path, r#"{"version":1,"variables":{"TOKEN":"before\u0000after"}}"#).unwrap();
+        fs::write(
+            &path,
+            r#"{"version":1,"variables":{"TOKEN":"before\u0000after"}}"#,
+        )
+        .unwrap();
         let error = load_store(&path).unwrap_err();
         assert!(!error.contains("before"));
     }

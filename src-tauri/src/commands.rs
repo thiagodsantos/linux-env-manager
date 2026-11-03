@@ -3,8 +3,7 @@ use crate::models::{
     ImportPreview, ImportResult, PendingImport, SaveVariableInput, Shell, Variable,
 };
 use crate::shell::{
-    get_shell_integrations as shell_integrations,
-    set_shell_integration as update_shell_integration,
+    get_shell_integrations as shell_integrations, set_shell_integration as update_shell_integration,
 };
 use crate::state::{lock_store, AppState};
 use crate::storage::{
@@ -125,12 +124,9 @@ fn apply_import(
 ) -> Result<ImportResult, String> {
     let _store_guard = lock_store(&state)?;
     let path = app_store_path(&app)?;
-    let mut pending = state
-        .pending_imports
-        .lock()
-        .map_err(|_| {
-            "Import preview state is unavailable. Restart the app and try again.".to_string()
-        })?;
+    let mut pending = state.pending_imports.lock().map_err(|_| {
+        "Import preview state is unavailable. Restart the app and try again.".to_string()
+    })?;
     let batch = pending
         .get(&token)
         .cloned()
