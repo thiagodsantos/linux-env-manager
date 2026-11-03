@@ -53,7 +53,9 @@ make dev
 
 ## CI and GitHub Releases
 
-GitHub Actions runs the quality checks and builds the frontend and Tauri application on pushes, pull requests, and manual dispatches. To publish a release, update the version in `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`, update `CHANGELOG.md`, and push a matching version tag (for example, `v0.1.0`). The release workflow builds the Linux AppImage, Debian package, and RPM and attaches them to the GitHub Release.
+GitHub Actions runs the quality checks and builds the frontend and Tauri application on pushes and pull requests. Releases use [Conventional Commits](https://www.conventionalcommits.org/): `fix:` creates a patch release, `feat:` creates a minor release, and a commit marked with `!` or a `BREAKING CHANGE:` footer creates a major release. Other commit types do not trigger a release by themselves.
+
+When release-worthy commits reach `main`, Release Please opens or updates a release pull request with the calculated version, synchronized `package.json` / Cargo / Tauri versions, and `CHANGELOG.md`. Merging that PR creates the version tag and GitHub Release; the release workflow then builds and attaches the Linux AppImage, Debian package, and RPM. No manual version edits or tag creation are needed. Repository Actions settings must allow GitHub Actions to create pull requests.
 
 The `.AppImage` asset is the directly executable Linux build. After downloading it, make it executable and launch it:
 

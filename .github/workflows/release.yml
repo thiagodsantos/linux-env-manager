@@ -2,27 +2,38 @@ name: Release
 
 on:
   push:
-    tags:
-      - "v*"
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: Existing release tag to build (for example, v0.1.0)
-        required: true
-        type: string
+    branches:
+      - main
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
+  release-please:
+    name: Prepare semantic release
+    runs-on: ubuntu-24.04
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - name: Create or update release pull request
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          config-file: .release-please-config.json
+          manifest-file: .release-please-manifest.json
+
   publish:
     name: Build and publish Linux release
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
     runs-on: ubuntu-24.04
     steps:
-      - name: Check out repository
+      - name: Check out release tag
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ needs.release-please.outputs.tag_name }}
 
       - name: Install Linux Tauri dependencies
         run: |
@@ -69,12 +80,10 @@ jobs:
       - name: Build Linux bundles
         run: pnpm tauri build
 
-      - name: Publish GitHub Release
+      - name: Attach Linux packages to the GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: Linux Environment Manager ${{ inputs.tag || github.ref_name }}
-          tag_name: ${{ inputs.tag || github.ref_name }}
-          generate_release_notes: true
+          tag_name: ${{ needs.release-please.outputs.tag_name }}
           fail_on_unmatched_files: true
           files: |
             src-tauri/target/release/bundle/appimage/*.AppImage

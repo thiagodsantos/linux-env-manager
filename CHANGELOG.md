@@ -7,7 +7,7 @@ Notable changes to Linux Environment Manager are documented here. This project f
 ### Added
 
 - GitHub Actions checks for frontend quality, Rust tests, and a complete Linux Tauri build.
-- Tag-triggered GitHub Releases with Linux AppImage, Debian, and RPM packages.
+- Conventional Commit-driven versioning and GitHub Releases with Linux AppImage, Debian, and RPM packages.
 
 ## [0.1.0] - 2026-11-03
 
