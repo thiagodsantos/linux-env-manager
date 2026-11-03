@@ -12,6 +12,30 @@ pub use models::{
 };
 
 pub fn run() {
+    let mut arguments = std::env::args_os();
+    let _program = arguments.next();
+    if arguments.next().as_deref() == Some(std::ffi::OsStr::new("--print-exports")) {
+        let Some(path) = arguments.next() else {
+            eprintln!("A variable store path is required.");
+            std::process::exit(2);
+        };
+        if arguments.next().is_some() {
+            eprintln!("Unexpected arguments for export mode.");
+            std::process::exit(2);
+        }
+        match storage::load_store(std::path::Path::new(&path)) {
+            Ok(variables) => {
+                for (key, value) in variables {
+                    println!("export {key}={}", shell::shell_quote(&value));
+                }
+            }
+            Err(error) => {
+                eprintln!("{error}");
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
     commands::run();
 }
 
@@ -25,14 +49,17 @@ mod tests {
         SHELL_BLOCK_END, SHELL_BLOCK_START,
     };
     use crate::storage::{
-        atomic_write_using, clear_variables_at, commit_import_at, load_store, save_store,
-        STORE_FILE,
+        atomic_write_using, clear_variables_with_test_key, commit_import_at_with_test_key,
+        load_store_with_test_key, save_store_with_test_key, STORE_FILE,
     };
     use std::collections::BTreeMap;
     use std::fs;
     use std::os::unix::fs::PermissionsExt;
     use std::path::Path;
+
     use tempfile::tempdir;
+
+    const TEST_ENCRYPTION_KEY: [u8; 32] = [42; 32];
 
     #[test]
     fn validates_environment_variable_names() {
@@ -78,12 +105,16 @@ mod tests {
 
     #[test]
     fn generated_shell_block_reads_the_store_and_quotes_its_path() {
-        let block = managed_shell_block(Path::new("/tmp/app's data/variables.json")).unwrap();
+        let block = managed_shell_block(
+            Path::new("/tmp/app's data/variables.json"),
+            Path::new("/opt/Environment Manager/bin/linux-env-manager"),
+        )
+        .unwrap();
         assert!(block.starts_with("# >>> linux-env-manager managed shell integration >>>\n"));
-        assert!(block.contains("python3 -c"));
-        assert!(block.contains("json.load(store_file)"));
-        assert!(block.contains("shlex.quote(value)"));
+        assert!(block.contains("--print-exports"));
         assert!(block.contains("/tmp/app'\\''s data/variables.json"));
+        assert!(block.contains("/opt/Environment Manager/bin/linux-env-manager"));
+        assert!(!block.contains("python3"));
         assert!(block.ends_with("# <<< linux-env-manager managed shell integration <<<\n"));
     }
 
@@ -231,11 +262,13 @@ mod tests {
             ("TOKEN".to_string(), "secret".to_string()),
             ("HOME".to_string(), "/home/tester".to_string()),
         ]);
-        save_store(&path, &original).unwrap();
+        save_store_with_test_key(&path, &original, &TEST_ENCRYPTION_KEY).unwrap();
 
-        clear_variables_at(&path).unwrap();
+        clear_variables_with_test_key(&path, &TEST_ENCRYPTION_KEY).unwrap();
 
-        assert!(load_store(&path).unwrap().is_empty());
+        assert!(load_store_with_test_key(&path, &TEST_ENCRYPTION_KEY)
+            .unwrap()
+            .is_empty());
     }
 
     #[test]
@@ -257,16 +290,16 @@ mod tests {
         let directory = tempdir().unwrap();
         let path = directory.path().join(STORE_FILE);
         let original = BTreeMap::from([("EXISTING".to_string(), "old".to_string())]);
-        save_store(&path, &original).unwrap();
+        save_store_with_test_key(&path, &original, &TEST_ENCRYPTION_KEY).unwrap();
         let parsed = parse_env("EXISTING=new\nNEW=value\n");
         let batch = PendingImport {
             variables: parsed.variables,
             invalid_lines: parsed.invalid_lines,
         };
-        let result = commit_import_at(&path, &batch).unwrap();
+        let result = commit_import_at_with_test_key(&path, &batch, &TEST_ENCRYPTION_KEY).unwrap();
         assert_eq!(result.added, vec!["NEW"]);
         assert_eq!(result.updated, vec!["EXISTING"]);
-        let persisted = load_store(&path).unwrap();
+        let persisted = load_store_with_test_key(&path, &TEST_ENCRYPTION_KEY).unwrap();
         assert_eq!(persisted["EXISTING"], "new");
         assert_eq!(persisted["NEW"], "value");
     }
@@ -276,12 +309,53 @@ mod tests {
         let directory = tempdir().unwrap();
         let path = directory.path().join(STORE_FILE);
         let variables = BTreeMap::from([("TOKEN".to_string(), "secret".to_string())]);
-        save_store(&path, &variables).unwrap();
-        assert_eq!(load_store(&path).unwrap(), variables);
+        save_store_with_test_key(&path, &variables, &TEST_ENCRYPTION_KEY).unwrap();
+        assert_eq!(
+            load_store_with_test_key(&path, &TEST_ENCRYPTION_KEY).unwrap(),
+            variables
+        );
+        let file = fs::read_to_string(&path).unwrap();
+        assert!(!file.contains("secret"));
+        assert!(file.contains("AES-256-GCM"));
         assert_eq!(
             fs::metadata(path).unwrap().permissions().mode() & 0o777,
             0o600
         );
+    }
+
+    #[test]
+    fn legacy_plaintext_store_is_migrated_to_encrypted_json() {
+        let directory = tempdir().unwrap();
+        let path = directory.path().join(STORE_FILE);
+        fs::write(
+            &path,
+            r#"{"version":1,"variables":{"TOKEN":"legacy-secret"}}"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            load_store_with_test_key(&path, &TEST_ENCRYPTION_KEY).unwrap()["TOKEN"],
+            "legacy-secret"
+        );
+        let encrypted = fs::read_to_string(&path).unwrap();
+        assert!(encrypted.contains("AES-256-GCM"));
+        assert!(!encrypted.contains("legacy-secret"));
+    }
+
+    #[test]
+    fn encrypted_store_rejects_a_wrong_key_without_disclosing_values() {
+        let directory = tempdir().unwrap();
+        let path = directory.path().join(STORE_FILE);
+        save_store_with_test_key(
+            &path,
+            &BTreeMap::from([("TOKEN".to_string(), "secret-value".to_string())]),
+            &TEST_ENCRYPTION_KEY,
+        )
+        .unwrap();
+
+        let error = load_store_with_test_key(&path, &[7; 32]).unwrap_err();
+        assert!(error.contains("Unable to decrypt"));
+        assert!(!error.contains("secret-value"));
     }
 
     #[test]
@@ -293,7 +367,7 @@ mod tests {
             r#"{"version":1,"variables":{"TOKEN":"before\u0000after"}}"#,
         )
         .unwrap();
-        let error = load_store(&path).unwrap_err();
+        let error = load_store_with_test_key(&path, &TEST_ENCRYPTION_KEY).unwrap_err();
         assert!(!error.contains("before"));
     }
 
@@ -302,14 +376,17 @@ mod tests {
         let directory = tempdir().unwrap();
         let path = directory.path().join(STORE_FILE);
         let original = BTreeMap::from([("KEEP".to_string(), "old".to_string())]);
-        save_store(&path, &original).unwrap();
+        save_store_with_test_key(&path, &original, &TEST_ENCRYPTION_KEY).unwrap();
         let parsed = parse_env("NEW=value\nmalformed\n");
         let batch = PendingImport {
             variables: parsed.variables,
             invalid_lines: parsed.invalid_lines,
         };
-        assert!(commit_import_at(&path, &batch).is_err());
-        assert_eq!(load_store(&path).unwrap(), original);
+        assert!(commit_import_at_with_test_key(&path, &batch, &TEST_ENCRYPTION_KEY).is_err());
+        assert_eq!(
+            load_store_with_test_key(&path, &TEST_ENCRYPTION_KEY).unwrap(),
+            original
+        );
     }
 
     #[test]

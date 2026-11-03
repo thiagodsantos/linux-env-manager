@@ -5,7 +5,7 @@ use std::fs::{self, File, OpenOptions};
 use std::io::Write;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+
 use tauri::{AppHandle, Manager};
 use uuid::Uuid;
 
@@ -24,32 +24,21 @@ pub(crate) fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\\''"))
 }
 
-pub(crate) fn managed_shell_block(store_path: &Path) -> Result<String, String> {
-    const PYTHON_EXPORT_SCRIPT: &str = r#"import json
-import re
-import shlex
-import sys
-
-try:
-    with open(sys.argv[1], encoding="utf-8") as store_file:
-        store = json.load(store_file)
-    if isinstance(store, dict) and store.get("version") == 1:
-        variables = store.get("variables", {})
-        if isinstance(variables, dict):
-            for key, value in variables.items():
-                if isinstance(key, str) and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key) and isinstance(value, str) and "\x00" not in value:
-                    print("export " + key + "=" + shlex.quote(value))
-except (OSError, ValueError, TypeError, AttributeError):
-    pass
-"#;
-
+pub(crate) fn managed_shell_block(
+    store_path: &Path,
+    executable_path: &Path,
+) -> Result<String, String> {
     let store_path = store_path
         .to_str()
         .ok_or_else(|| "The application variable store path is not valid UTF-8.".to_string())?;
+    let executable_path = executable_path
+        .to_str()
+        .ok_or_else(|| "The application executable path is not valid UTF-8.".to_string())?;
     Ok(format!(
-        "{}\nif command -v python3 >/dev/null 2>&1; then\n  eval \"$(python3 -c {} {})\"\nfi\n{}\n",
+        "{}\nif [ -x {} ]; then\n  eval \"$({} --print-exports {})\"\nfi\n{}\n",
         String::from_utf8_lossy(SHELL_BLOCK_START),
-        shell_quote(PYTHON_EXPORT_SCRIPT),
+        shell_quote(executable_path),
+        shell_quote(executable_path),
         shell_quote(store_path),
         String::from_utf8_lossy(SHELL_BLOCK_END),
     ))
@@ -214,23 +203,18 @@ fn atomic_write_startup_file(path: &Path, bytes: &[u8]) -> Result<(), String> {
     Ok(())
 }
 
-fn python3_available() -> bool {
-    Command::new("python3")
-        .arg("--version")
-        .output()
-        .map(|output| output.status.success())
-        .unwrap_or(false)
-}
-
 pub(crate) fn set_shell_integration_at(
     startup_path: &Path,
     store_path: Option<&Path>,
+    executable_path: Option<&Path>,
     enabled: bool,
 ) -> Result<(), String> {
     let block = if enabled {
         let store_path =
             store_path.ok_or_else(|| "Unable to locate the variable store.".to_string())?;
-        Some(managed_shell_block(store_path)?.into_bytes())
+        let executable_path = executable_path
+            .ok_or_else(|| "Unable to locate the application executable.".to_string())?;
+        Some(managed_shell_block(store_path, executable_path)?.into_bytes())
     } else {
         None
     };
@@ -259,9 +243,16 @@ pub(crate) fn get_shell_integrations(app: AppHandle) -> Result<Vec<ShellIntegrat
         .into_iter()
         .map(|shell| {
             let path = shell_startup_path(&app, shell)?;
+            let enabled = shell_integration_enabled(&path)?;
+            if enabled {
+                let store_path = app_store_file_path(&app)?;
+                let executable_path = std::env::current_exe()
+                    .map_err(|_| "Unable to locate the application executable.".to_string())?;
+                set_shell_integration_at(&path, Some(&store_path), Some(&executable_path), true)?;
+            }
             Ok(ShellIntegration {
                 shell,
-                enabled: shell_integration_enabled(&path)?,
+                enabled,
                 startup_file: shell.startup_file(),
             })
         })
@@ -275,16 +266,18 @@ pub(crate) fn set_shell_integration(
     enabled: bool,
 ) -> Result<(), String> {
     let _guard = lock_store(&state)?;
-    if enabled && !python3_available() {
-        return Err(
-            "Python 3 is required for shell integration. Install python3 and retry.".to_string(),
-        );
-    }
     let startup_path = shell_startup_path(&app, shell)?;
     if enabled {
         let store_path = app_store_file_path(&app)?;
-        set_shell_integration_at(&startup_path, Some(&store_path), true)
+        let executable_path = std::env::current_exe()
+            .map_err(|_| "Unable to locate the application executable.".to_string())?;
+        set_shell_integration_at(
+            &startup_path,
+            Some(&store_path),
+            Some(&executable_path),
+            true,
+        )
     } else {
-        set_shell_integration_at(&startup_path, None, false)
+        set_shell_integration_at(&startup_path, None, None, false)
     }
 }

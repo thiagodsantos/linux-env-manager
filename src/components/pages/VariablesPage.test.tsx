@@ -300,11 +300,11 @@ describe('VariablesPage', () => {
   })
 
   it('shows recoverable load and file-picker errors and supports retry', async () => {
-    vi.mocked(variableApi.list).mockRejectedValueOnce(new Error('Store unavailable'))
+    vi.mocked(variableApi.list).mockRejectedValueOnce('Unable to access the desktop keyring.')
     vi.mocked(variableApi.previewImport).mockRejectedValueOnce(new Error('Picker unavailable'))
     render(<VariablesPage />)
     const user = userEvent.setup()
-    expect(await screen.findByText('Store unavailable')).toBeInTheDocument()
+    expect(await screen.findByText('Unable to access the desktop keyring.')).toBeInTheDocument()
     vi.mocked(variableApi.list).mockResolvedValueOnce(savedVariables)
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByText('API_TOKEN')).toBeInTheDocument()

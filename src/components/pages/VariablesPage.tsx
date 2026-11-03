@@ -14,7 +14,13 @@ const SHELL_INTEGRATIONS: { shell: ShellIntegrationStatus['shell']; label: strin
 ]
 
 function messageFromError(error: unknown, fallback: string): string {
-  return error instanceof Error && error.message ? error.message : fallback
+  if (typeof error === 'string' && error.trim()) return error
+  if (error instanceof Error && error.message) return error.message
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const message = error.message
+    if (typeof message === 'string' && message.trim()) return message
+  }
+  return fallback
 }
 
 function VariableEditor({

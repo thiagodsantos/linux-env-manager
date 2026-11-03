@@ -12,17 +12,17 @@ The interface uses Inter from Google Fonts and falls back to the system sans-ser
 - Node.js `24.14.0` (see `.nvmrc`)
 - Corepack and PNPM `12.16.1`
 - Rust stable toolchain with Cargo (install with [rustup](https://rustup.rs/))
-- Python 3 for optional Bash/Zsh shell integration
+- A Secret Service-compatible desktop keyring (for example, GNOME Keyring or KWallet) for encryption-key storage
 
 Tauri's Linux build dependencies vary by distribution. Examples:
 
 ```sh
 # Fedora
-sudo dnf install pkgconf-pkg-config gtk3-devel webkit2gtk4.1-devel openssl-devel curl wget file python3 \
+sudo dnf install pkgconf-pkg-config gtk3-devel webkit2gtk4.1-devel openssl-devel curl wget file \
   libxdo-devel librsvg2-devel libayatana-appindicator-gtk3
 
 # Debian / Ubuntu
-sudo apt install build-essential pkg-config curl wget file python3 libgtk-3-dev libssl-dev libxdo-dev \
+sudo apt install build-essential pkg-config curl wget file libgtk-3-dev libssl-dev libxdo-dev \
   libayatana-appindicator3-dev librsvg2-dev libwebkit2gtk-4.1-dev
 ```
 
@@ -89,13 +89,13 @@ The preview reports keys only, never their values. At apply time, incoming keys 
 
 ## Persistence and privacy
 
-The canonical JSON store is `variables.json` in Tauri's per-user application configuration directory (typically `$XDG_CONFIG_HOME/dev.linuxenvmanager.app/variables.json`, or `~/.config/dev.linuxenvmanager.app/variables.json`). Its format is versioned, writes use a temporary file followed by atomic rename, and Unix files/directories are restricted to the current user where supported. Values are stored as plaintext JSON; this application does not provide encryption. Protect your user account and backups accordingly.
+The canonical store is `variables.json` in Tauri's per-user application configuration directory (typically `$XDG_CONFIG_HOME/dev.linuxenvmanager.app/variables.json`, or `~/.config/dev.linuxenvmanager.app/variables.json`). Version 2 stores the variables as AES-256-GCM authenticated ciphertext; the random encryption key is kept in the current user's Secret Service-compatible desktop keyring, not alongside the JSON file. Unlock/configure the keyring before using the app. If an older version-1 plaintext store exists, the app encrypts it on its first successful load. If the keyring entry is removed, the encrypted store cannot be recovered from the JSON file alone; restore the keyring entry or a matching backup. Writes use a temporary file followed by atomic rename, and Unix files/directories are restricted to the current user where supported. Encryption protects the file and ordinary backups at rest, but not a compromised user account, a running app, or values after they are revealed or exported.
 
 ### Optional Bash/Zsh integration
 
 The **Shell integration** section in the app can be enabled separately for Bash (`~/.bashrc`) and/or Zsh (`~/.zshrc`). Enabling adds only a clearly marked manager-owned block to that user's selected startup file; disabling removes only that block and preserves the rest of the file. The app does not write `/etc/environment` or any system shell configuration.
 
-On each new interactive Bash or Zsh session, the block asks Python 3 to read the current `variables.json` and emit shell-quoted `export` assignments. Imported `.env` text is never sourced or evaluated. Add/edit/delete/import changes are therefore available to the next shell session without copying values into startup files. Exported values are inherited by commands started from that shell. Existing shells and other running processes are unchanged; open a new terminal or manually source the corresponding RC file (for example, `source ~/.bashrc`). Shell integration is opt-in and limited to Bash and Zsh; other shells are not currently supported.
+On each new interactive Bash or Zsh session, the managed block invokes the app executable in export mode. The app decrypts the store through the desktop keyring and returns validated, shell-quoted `export` assignments; plaintext values are not written into the startup file. Imported `.env` text is never sourced or evaluated. Add/edit/delete/import changes are therefore available to the next shell session. Exported values are inherited by commands started from that shell. Existing shells and other running processes are unchanged; open a new terminal or manually source the corresponding RC file (for example, `source ~/.bashrc`). Shell integration is opt-in and limited to Bash and Zsh; other shells are not currently supported.
 
 ## Quality checks
 

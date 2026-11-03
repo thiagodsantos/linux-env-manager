@@ -15,14 +15,14 @@ Use this skill for backend implementation or review in this repository. Read `PL
 
 ## Safety and behavior
 
-- Store data only in the app-owned per-user configuration location resolved through supported Tauri APIs. Do not edit `/etc/environment`, arbitrary paths, or shell startup files as part of normal CRUD.
-- Shell integration is separately opt-in and supports Bash/Zsh only. Add/remove only the clearly marked managed block in the selected user's `.bashrc` or `.zshrc`; preserve unrelated content. Load the current JSON store using validated, shell-quoted exports, never by sourcing imported contents. Explain that new sessions (or manual re-sourcing) are required and already-running processes are unchanged.
+- Store data only in the app-owned per-user configuration location resolved through supported Tauri APIs. Encrypt the complete JSON payload using authenticated encryption; keep the key in the user's Secret Service-compatible desktop keyring, never adjacent to the data file. Migrate legacy plaintext stores safely. Do not edit `/etc/environment`, arbitrary paths, or shell startup files as part of normal CRUD.
+- Shell integration is separately opt-in and supports Bash/Zsh only. Add/remove only the clearly marked managed block in the selected user's `.bashrc` or `.zshrc`; preserve unrelated content. The block invokes the app's export mode to decrypt the encrypted store using the desktop keyring and emit validated, shell-quoted exports; never put plaintext values in startup files or source imported contents. Explain that new sessions (or manual re-sourcing) are required and already-running processes are unchanged.
 - Use native file selection for user-chosen imports. Do not trust arbitrary frontend-supplied paths.
 - Parse `.env` contents as data; never source, evaluate, or execute them. Do not log variable values or include them in error messages.
 - Validate keys using the naming rule documented in `PLAN.md`. Reject invalid keys and handle duplicate keys deterministically.
 - Import is an add-or-update merge: incoming keys replace existing values, new keys are added. Validate and apply the entire import atomically; malformed input or write failure must not leave a partial update.
 - Define parser behavior for comments, blank lines, `KEY=value`, values containing `=`, quotes, `export`, duplicate keys, interpolation, and malformed lines. Keep documentation aligned with actual support; do not imply full shell syntax compatibility.
-- Write persistent data safely using a temporary file and atomic replacement where supported. Use restrictive per-user permissions when supported and preserve the old data if a write fails.
+- Write encrypted persistent data safely using a temporary file and atomic replacement where supported. Use restrictive per-user permissions when supported and preserve the old data if a write fails.
 - Return actionable, value-free errors. Avoid panics for routine invalid input or I/O failures.
 - Request only the Tauri capabilities and permissions needed for the implemented commands and file picker.
 

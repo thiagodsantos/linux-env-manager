@@ -13,9 +13,9 @@ Linux environment variables belong to processes: a desktop app cannot change the
 For the MVP:
 
 - Manage a **user-scoped** set of variables, not system-wide variables.
-- Store the canonical data in an app-owned file under Tauri's per-user application configuration directory. Use a documented, versionable format (JSON is recommended for the canonical store); do not edit `/etc/environment`, shell startup files, or arbitrary paths implicitly.
+- Store the canonical data in an app-owned file under Tauri's per-user application configuration directory. Use a documented, versioned JSON format encrypted with authenticated encryption; keep its key in the user's Secret Service-compatible desktop keyring, never beside the store. Migrate existing plaintext version-1 data on first successful load. Do not edit `/etc/environment`, arbitrary paths, or shell startup files implicitly.
 - Make it clear in the UI and README that saving changes updates the manager's persistent store, not the current process environment.
-- Loading values into future shells is a separate, **opt-in** integration. The first release supports Bash and Zsh, configured independently in the app. Enabling adds a narrowly scoped managed block to only `~/.bashrc` or `~/.zshrc`; disabling removes only that block and preserves unrelated contents. The block reads the app-owned JSON store and emits safely quoted exports; it never sources imported file contents. Changes apply to new shell sessions (or after manually sourcing the RC file), not already-running processes. Python 3 is required for shell integration.
+- Loading values into future shells is a separate, **opt-in** integration. The first release supports Bash and Zsh, configured independently in the app. Enabling adds a narrowly scoped managed block to only `~/.bashrc` or `~/.zshrc`; disabling removes only that block and preserves unrelated content. The block invokes the app's export mode, which decrypts the app-owned JSON store and emits safely quoted exports; it never sources imported contents or writes plaintext values into startup files. Changes apply to new shell sessions (or after manually sourcing the RC file), not already-running processes.
 
 This boundary avoids implying that a GUI can update every Linux process and prevents accidental edits to system or user shell configuration.
 
@@ -41,7 +41,7 @@ This boundary avoids implying that a GUI can update every Linux process and prev
 - Tauri v2 commands form the narrow frontend/native boundary: list variables, create or update a variable, delete a variable, and import/preview a `.env` file.
 - A domain/service layer owns validation, uniqueness, import merge rules, and persistence. Keep filesystem operations behind the storage boundary so behavior can be tested without a GUI.
 - A file-backed repository reads and writes only the app-owned store for normal CRUD. The import flow accepts a user-selected file through a native file picker rather than accepting arbitrary paths from untrusted frontend input.
-- Persist safely: validate before mutation, write a temporary file and atomically replace the store, preserve restrictive user-only permissions where supported, and surface actionable I/O errors.
+- Persist safely: validate before mutation, encrypt the complete JSON payload with AES-256-GCM using a random key stored in Secret Service, write a temporary file and atomically replace the ciphertext store, preserve restrictive user-only permissions where supported, and surface actionable, value-free errors.
 - Do not log variable values or expose secrets in error messages. Never execute imported file contents as shell code.
 
 Use SOLID and DRY pragmatically: isolate the domain rules and persistence/native boundary, but avoid speculative plugin systems, excessive interfaces, or abstractions with only one unnecessary use. Keep components and services cohesive and implement only the agreed MVP.
@@ -128,5 +128,5 @@ Provide reusable, focused instructions under `.agents/skills/` so Zed can apply 
 - `make check` (or its documented equivalent) passes, and frontend coverage thresholds are enforced above 80% in every configured category.
 - Linux setup, run, build, test, import semantics, data location, opt-in Bash/Zsh shell integration, and process-environment limitations are documented in `README.md`.
 - The frontend consistently uses the specified Coolors palette (`#05668D`, `#427AA1`, `#EBF2FA`, `#679436`, `#A5BE00`) and Inter font, with accessible contrast, and organizes components using the documented Atomic Design levels.
-- No secret values are logged, imported contents are never executed, and shell/system configuration is not modified without explicit user opt-in. Shell integration changes only its marked user-level Bash/Zsh block and is removable.
+- No secret values are logged, the JSON store contains authenticated ciphertext rather than variable values, imported contents are never executed, and shell/system configuration is not modified without explicit user opt-in. Shell integration changes only its marked user-level Bash/Zsh block and is removable.
 - Project-local Zed skills exist at `.agents/skills/tauri-backend/SKILL.md` and `.agents/skills/react-frontend/SKILL.md`, and their instructions agree with this plan.
