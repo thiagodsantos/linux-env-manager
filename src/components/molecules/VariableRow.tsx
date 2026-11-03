@@ -27,16 +27,16 @@ export function VariableRow({ variable, onEdit, onDelete }: VariableRowProps) {
         <Button
           type="button"
           variant="quiet"
-          className="size-9 min-h-9 px-0"
+          className="variable-action"
           aria-label={`${revealed ? 'Hide' : 'Show'} ${variable.key} value`}
           onClick={() => setRevealed((current) => !current)}
         >
           {revealed ? <EyeOff aria-hidden="true" size={17} /> : <Eye aria-hidden="true" size={17} />}
         </Button>
-        <Button type="button" variant="quiet" className="size-9 min-h-9 px-0" aria-label={`Edit ${variable.key}`} onClick={() => onEdit(variable)}>
+        <Button type="button" variant="quiet" className="variable-action" aria-label={`Edit ${variable.key}`} onClick={() => onEdit(variable)}>
           <Pencil aria-hidden="true" size={16} />
         </Button>
-        <Button type="button" variant="quiet" className="size-9 min-h-9 px-0 text-danger hover:bg-danger/10 hover:text-danger" aria-label={`Delete ${variable.key}`} onClick={() => onDelete(variable)}>
+        <Button type="button" variant="quiet" className="variable-action variable-action-danger" aria-label={`Delete ${variable.key}`} onClick={() => onDelete(variable)}>
           <Trash2 aria-hidden="true" size={17} />
         </Button>
       </div>

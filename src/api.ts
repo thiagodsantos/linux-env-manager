@@ -5,6 +5,7 @@ export const variableApi = {
   list: () => invoke<Variable[]>('list_variables'),
   save: (input: SaveVariableInput) => invoke<void>('save_variable', { input }),
   remove: (key: string) => invoke<void>('delete_variable', { key }),
+  clear: () => invoke<void>('clear_variables'),
   previewImport: () => invoke<ImportPreview | null>('preview_import'),
   applyImport: (token: string) => invoke<ImportResult>('apply_import', { token }),
   discardImport: (token: string) => invoke<void>('discard_import', { token }),

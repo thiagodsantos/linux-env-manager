@@ -126,6 +126,43 @@ function DeleteConfirmation({
 }
 
 
+function ClearVariablesConfirmation({
+  variableCount,
+  onCancel,
+  onConfirm,
+}: {
+  variableCount: number
+  onCancel: () => void
+  onConfirm: () => Promise<void>
+}) {
+  const [error, setError] = useState('')
+  const [clearing, setClearing] = useState(false)
+
+  async function confirm() {
+    setClearing(true)
+    setError('')
+    try {
+      await onConfirm()
+    } catch (reason) {
+      setError(messageFromError(reason, 'Unable to clear saved variables.'))
+      setClearing(false)
+    }
+  }
+
+  return (
+    <Modal role="alertdialog" labelledBy="clear-variables-title" onClose={onCancel} className="max-w-md">
+      <div className="grid size-11 place-items-center rounded-2xl bg-danger/10 text-danger"><CircleAlert aria-hidden="true" size={22} /></div>
+      <h2 id="clear-variables-title" className="mt-4 text-xl font-bold">Clear custom environment?</h2>
+      <p className="mt-2 text-sm leading-6 text-muted">This permanently removes all {variableCount} saved {variableCount === 1 ? 'variable' : 'variables'} from this app. Shell integration settings and startup files are not changed.</p>
+      {error && <p role="alert" className="mt-4 rounded-xl bg-danger/10 px-3 py-2.5 text-sm font-medium text-danger">{error}</p>}
+      <div className="mt-6 flex justify-end gap-2">
+        <Button type="button" onClick={onCancel} disabled={clearing}>Cancel</Button>
+        <Button type="button" variant="danger" disabled={clearing} icon={<Trash2 aria-hidden="true" size={15} />} onClick={() => void confirm()}>{clearing ? 'Clearing…' : 'Clear custom env'}</Button>
+      </div>
+    </Modal>
+  )
+}
+
 function ImportDialog({
   preview,
   onClose,
@@ -199,6 +236,7 @@ export default function VariablesPage() {
   const [search, setSearch] = useState('')
   const [editor, setEditor] = useState<Variable | null | undefined>(undefined)
   const [deleting, setDeleting] = useState<Variable | null>(null)
+  const [confirmingClear, setConfirmingClear] = useState(false)
   const [preview, setPreview] = useState<ImportPreview | null>(null)
   const [importing, setImporting] = useState(false)
   const [actionError, setActionError] = useState('')
@@ -309,6 +347,14 @@ export default function VariablesPage() {
     await refresh()
   }
 
+  async function clearSavedVariables() {
+    await variableApi.clear()
+    setConfirmingClear(false)
+    setSearch('')
+    setNotice('Custom environment cleared from this app. Shell integration settings and startup files were left unchanged.')
+    await refresh()
+  }
+
   function imported(result: ImportResult) {
     setPreview(null)
     setNotice(`Import complete: ${result.added.length} added, ${result.updated.length} updated.`)
@@ -332,6 +378,7 @@ export default function VariablesPage() {
         <div className="flex flex-col gap-4 border-b border-line px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div><div className="flex items-center gap-2"><h2 id="variables-heading" className="text-lg font-bold tracking-tight">Your variables</h2><span className="rounded-full bg-canvas px-2.5 py-1 text-xs font-bold text-muted">{variables.length}</span></div><p className="mt-1 text-sm text-muted">Only visible to your user account</p></div>
           <div className="flex flex-wrap gap-2">
+            {variables.length > 0 && <Button type="button" variant="danger" onClick={() => setConfirmingClear(true)} icon={<Trash2 size={16} />}>Clear custom env</Button>}
             <Button type="button" onClick={() => void startImport()} disabled={importing} icon={<ArrowDownToLine size={16} />}>{importing ? 'Choosing file…' : 'Import .env'}</Button>
             <Button type="button" variant="primary" onClick={() => { setActionError(''); setEditor(null) }} icon={<Plus size={17} />}>Add variable</Button>
           </div>
@@ -384,7 +431,7 @@ export default function VariablesPage() {
                 <Button
                   type="button"
                   className="mt-4 w-full"
-                  variant={status?.enabled ? 'danger' : 'primary'}
+                  variant={status?.enabled ? 'secondary' : 'primary'}
                   disabled={busy || !status}
                   onClick={() => status && void updateShellIntegration(shell, !status.enabled)}
                 >
@@ -399,6 +446,7 @@ export default function VariablesPage() {
 
       {editor !== undefined && <VariableEditor variable={editor} variables={variables} onClose={() => setEditor(undefined)} onSaved={refresh} />}
       {deleting && <DeleteConfirmation variable={deleting} onCancel={() => setDeleting(null)} onConfirm={removeVariable} />}
+      {confirmingClear && <ClearVariablesConfirmation variableCount={variables.length} onCancel={() => setConfirmingClear(false)} onConfirm={clearSavedVariables} />}
       {preview && <ImportDialog preview={preview} onClose={() => setPreview(null)} onApply={imported} />}
     </WorkspaceLayout>
   )

@@ -14,6 +14,7 @@ vi.mock('@/api', () => ({
     list: vi.fn(),
     save: vi.fn(),
     remove: vi.fn(),
+    clear: vi.fn(),
     previewImport: vi.fn(),
     applyImport: vi.fn(),
     discardImport: vi.fn(),
@@ -53,6 +54,7 @@ beforeEach(() => {
   vi.mocked(shellIntegrationApi.set).mockResolvedValue(undefined)
   vi.mocked(variableApi.save).mockResolvedValue(undefined)
   vi.mocked(variableApi.remove).mockResolvedValue(undefined)
+  vi.mocked(variableApi.clear).mockResolvedValue(undefined)
   vi.mocked(variableApi.previewImport).mockResolvedValue(null)
   vi.mocked(variableApi.applyImport).mockResolvedValue({ added: ['NEW_KEY'], updated: ['HOME'] })
   vi.mocked(variableApi.discardImport).mockResolvedValue(undefined)
@@ -68,6 +70,9 @@ describe('VariablesPage', () => {
     expect(await screen.findByText('API_TOKEN')).toBeInTheDocument()
     expect(screen.getByLabelText('API_TOKEN value')).toHaveTextContent('••••••••••••')
     expect(screen.queryByText('secret-value')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Show API_TOKEN value' })).toHaveClass('variable-action')
+    expect(screen.getByRole('button', { name: 'Edit API_TOKEN' })).toHaveClass('variable-action')
+    expect(screen.getByRole('button', { name: 'Delete API_TOKEN' })).toHaveClass('variable-action')
 
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Show API_TOKEN value' }))
@@ -134,6 +139,39 @@ describe('VariablesPage', () => {
     await user.click(screen.getByRole('button', { name: 'Delete variable' }))
     await waitFor(() => expect(variableApi.remove).toHaveBeenCalledWith('API_TOKEN'))
     expect(await screen.findByText('Your variables')).toBeInTheDocument()
+  })
+
+  it('clears only the app-saved variables after confirmation', async () => {
+    vi.mocked(variableApi.list).mockResolvedValueOnce(savedVariables).mockResolvedValueOnce([])
+    render(<VariablesPage />)
+    const user = userEvent.setup()
+    await screen.findByText('API_TOKEN')
+
+    await user.click(screen.getByRole('button', { name: 'Clear custom env' }))
+    const dialog = screen.getByRole('alertdialog', { name: 'Clear custom environment?' })
+    expect(within(dialog).getByText(/all 2 saved variables from this app/i)).toBeInTheDocument()
+    expect(within(dialog).getByText(/Shell integration settings and startup files are not changed/i)).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    expect(variableApi.clear).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: 'Clear custom env' }))
+    const confirmation = screen.getByRole('alertdialog', { name: 'Clear custom environment?' })
+    await user.click(within(confirmation).getByRole('button', { name: 'Clear custom env' }))
+    await waitFor(() => expect(variableApi.clear).toHaveBeenCalledTimes(1))
+    expect(await screen.findByText('A fresh start')).toBeInTheDocument()
+    expect(shellIntegrationApi.set).not.toHaveBeenCalled()
+  })
+
+  it('keeps the clear confirmation open after a clear failure', async () => {
+    vi.mocked(variableApi.clear).mockRejectedValueOnce(new Error('Clear failed'))
+    render(<VariablesPage />)
+    const user = userEvent.setup()
+    await screen.findByText('API_TOKEN')
+    await user.click(screen.getByRole('button', { name: 'Clear custom env' }))
+    const dialog = screen.getByRole('alertdialog', { name: 'Clear custom environment?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Clear custom env' }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Clear failed')
+    expect(dialog).toBeInTheDocument()
   })
 
   it('keeps the confirmation open after a delete failure', async () => {

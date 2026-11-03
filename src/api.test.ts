@@ -17,6 +17,12 @@ describe('typed native API', () => {
     expect(invoke).toHaveBeenNthCalledWith(2, 'save_variable', { input: { key: 'HOME', value: '/tmp', originalKey: 'HOME' } })
   })
 
+  it('maps clearing saved variables to the app-store command', async () => {
+    vi.mocked(invoke).mockResolvedValueOnce(undefined)
+    await expect(variableApi.clear()).resolves.toBeUndefined()
+    expect(invoke).toHaveBeenCalledWith('clear_variables')
+  })
+
   it('maps shell integration status and opt-in changes', async () => {
     const statuses: ShellIntegrationStatus[] = [
       { shell: 'bash', enabled: true, startupFile: '~/.bashrc' },

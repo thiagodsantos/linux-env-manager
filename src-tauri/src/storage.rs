@@ -22,6 +22,10 @@ pub(crate) fn delete_variable_at(path: &Path, key: &str) -> Result<(), String> {
     save_store(path, &variables)
 }
 
+pub(crate) fn clear_variables_at(path: &Path) -> Result<(), String> {
+    save_store(path, &Variables::new())
+}
+
 pub(crate) fn load_store(path: &Path) -> Result<Variables, String> {
     let content = match fs::read_to_string(path) {
         Ok(content) => content,

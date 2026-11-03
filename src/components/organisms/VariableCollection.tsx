@@ -35,7 +35,7 @@ export function VariableCollection({
           <label className="relative block max-w-sm">
             <span className="sr-only">Search variable keys</span>
             <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-            <input className="field-input h-10 py-2 pl-9" placeholder="Search keys…" value={search} onChange={(event) => onSearch(event.target.value)} />
+            <input className="field-input search-input h-10 py-2" placeholder="Search keys…" value={search} onChange={(event) => onSearch(event.target.value)} />
           </label>
         </div>
       )}
@@ -58,7 +58,7 @@ export function VariableCollection({
       ) : filteredVariables.length === 0 ? (
         <p className="px-6 py-12 text-center text-sm text-muted">No keys match “{search}”.</p>
       ) : (
-        <div>{filteredVariables.map((variable) => <VariableRow key={variable.key} variable={variable} onEdit={onEdit} onDelete={onDelete} />)}</div>
+        <div className="max-h-96 overflow-y-auto overscroll-contain">{filteredVariables.map((variable) => <VariableRow key={variable.key} variable={variable} onEdit={onEdit} onDelete={onDelete} />)}</div>
       )}
     </>
   )

@@ -25,7 +25,8 @@ mod tests {
         SHELL_BLOCK_END, SHELL_BLOCK_START,
     };
     use crate::storage::{
-        atomic_write_using, commit_import_at, load_store, save_store, STORE_FILE,
+        atomic_write_using, clear_variables_at, commit_import_at, load_store, save_store,
+        STORE_FILE,
     };
     use std::collections::BTreeMap;
     use std::fs;
@@ -220,6 +221,21 @@ mod tests {
         apply_delete(&mut variables, "A").unwrap();
         assert!(variables.is_empty());
         assert!(apply_delete(&mut variables, "MISSING").is_err());
+    }
+
+    #[test]
+    fn clearing_variables_persists_an_empty_app_store() {
+        let directory = tempdir().unwrap();
+        let path = directory.path().join(STORE_FILE);
+        let original = BTreeMap::from([
+            ("TOKEN".to_string(), "secret".to_string()),
+            ("HOME".to_string(), "/home/tester".to_string()),
+        ]);
+        save_store(&path, &original).unwrap();
+
+        clear_variables_at(&path).unwrap();
+
+        assert!(load_store(&path).unwrap().is_empty());
     }
 
     #[test]

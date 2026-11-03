@@ -7,7 +7,8 @@ use crate::shell::{
 };
 use crate::state::{lock_store, AppState};
 use crate::storage::{
-    app_store_path, commit_import_at, delete_variable_at, load_store, save_variable_at, with_store,
+    app_store_path, clear_variables_at, commit_import_at, delete_variable_at, load_store,
+    save_variable_at, with_store,
 };
 use std::fs;
 use tauri::{AppHandle, State};
@@ -54,6 +55,12 @@ fn save_variable(
 fn delete_variable(app: AppHandle, state: State<'_, AppState>, key: String) -> Result<(), String> {
     let _guard = lock_store(&state)?;
     with_store(&app, |path| delete_variable_at(path, &key))
+}
+
+#[tauri::command]
+fn clear_variables(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+    let _guard = lock_store(&state)?;
+    with_store(&app, clear_variables_at)
 }
 
 #[tauri::command]
@@ -144,6 +151,7 @@ pub fn run() {
             list_variables,
             save_variable,
             delete_variable,
+            clear_variables,
             preview_import,
             apply_import,
             discard_import,
