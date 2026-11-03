@@ -49,7 +49,20 @@ make install
 make dev
 ```
 
-`make dev` launches the Vite frontend in the Tauri desktop window. To produce a Linux bundle, run `make build` (the bundle targets are Debian, RPM, and AppImage).
+`make dev` launches the Vite frontend in the Tauri desktop window. To produce Linux bundles locally, run `make build` (the bundle targets are Debian, RPM, and AppImage).
+
+## CI and GitHub Releases
+
+GitHub Actions runs the quality checks and builds the frontend and Tauri application on pushes, pull requests, and manual dispatches. To publish a release, update the version in `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`, update `CHANGELOG.md`, and push a matching version tag (for example, `v0.1.0`). The release workflow builds the Linux AppImage, Debian package, and RPM and attaches them to the GitHub Release.
+
+The `.AppImage` asset is the directly executable Linux build. After downloading it, make it executable and launch it:
+
+```sh
+chmod +x ./*.AppImage
+./*.AppImage
+```
+
+The AppImage requires a compatible Linux system with the WebKitGTK 4.1 runtime installed. Debian and RPM packages are also attached for systems where installing a package is preferred. See [GitHub Releases](https://github.com/thiagodsantos/linux-env-manager/releases) for published builds. `CHANGELOG.md` records release changes.
 
 ## Usage
 
