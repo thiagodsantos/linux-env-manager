@@ -30,7 +30,7 @@ This boundary avoids implying that a GUI can update every Linux process and prev
 
 ### Frontend visual design and component structure
 
-- Use the Coolors palette [`#780000`, `#C1121F`, `#FDF0D5`, `#003049`, `#669BBC`](https://coolors.co/palette/780000-c1121f-fdf0d5-003049-669bbc). Define them as named design tokens and expose them through the Tailwind theme; use semantic tokens for surfaces, text, actions, and feedback rather than scattering raw hex values through components.
+- Use the Coolors palette [`#05668D`, `#427AA1`, `#EBF2FA`, `#679436`, `#A5BE00`](https://coolors.co/palette/05668d-427aa1-ebf2fa-679436-a5be00). Define named design tokens and expose them through the Tailwind theme; use semantic tokens for surfaces, text, actions, and feedback rather than scattering raw hex values through components.
 - Use Inter as the primary UI font, sourced from [Google Fonts](https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900), with a system sans-serif fallback. Apply it consistently through the global theme.
 - Meet accessible contrast requirements for text, controls, and focus indicators; verify actual foreground/background pairings rather than assuming every palette combination is readable.
 - Organize reusable frontend components using Atomic Design: **atoms** for primitives, **molecules** for small combinations, **organisms** for larger interface sections, **templates** for page layouts, and **pages** for route-level composition.
@@ -127,6 +127,6 @@ Provide reusable, focused instructions under `.agents/skills/` so Zed can apply 
 - No frontend internal relative imports remain; alias configuration works in Vite, TypeScript, tests, and linting.
 - `make check` (or its documented equivalent) passes, and frontend coverage thresholds are enforced above 80% in every configured category.
 - Linux setup, run, build, test, import semantics, data location, opt-in Bash/Zsh shell integration, and process-environment limitations are documented in `README.md`.
-- The frontend consistently uses the specified Coolors palette and Inter font, with accessible contrast, and organizes components using the documented Atomic Design levels.
+- The frontend consistently uses the specified Coolors palette (`#05668D`, `#427AA1`, `#EBF2FA`, `#679436`, `#A5BE00`) and Inter font, with accessible contrast, and organizes components using the documented Atomic Design levels.
 - No secret values are logged, imported contents are never executed, and shell/system configuration is not modified without explicit user opt-in. Shell integration changes only its marked user-level Bash/Zsh block and is removable.
 - Project-local Zed skills exist at `.agents/skills/tauri-backend/SKILL.md` and `.agents/skills/react-frontend/SKILL.md`, and their instructions agree with this plan.

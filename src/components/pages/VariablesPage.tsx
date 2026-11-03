@@ -62,7 +62,7 @@ function VariableEditor({
     <Modal labelledBy="editor-title" onClose={onClose}>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-red">{variable ? 'Make a change' : 'Add to your workspace'}</p>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-danger">{variable ? 'Make a change' : 'Add to your workspace'}</p>
             <h2 id="editor-title" className="mt-1 text-xl font-bold tracking-tight">{variable ? 'Edit variable' : 'New variable'}</h2>
           </div>
           <Button type="button" variant="quiet" className="size-9 min-h-9 px-0" aria-label="Close editor" onClick={onClose}><X size={18} /></Button>
@@ -78,7 +78,7 @@ function VariableEditor({
             <textarea id="variable-value" rows={3} className="field-input resize-y font-mono" value={value} onChange={(event) => setValue(event.target.value)} />
             <p className="field-hint">Stored privately in this app's user configuration.</p>
           </div>
-          {formError && <p role="alert" className="rounded-xl bg-red/10 px-3 py-2.5 text-sm font-medium text-red">{formError}</p>}
+          {formError && <p role="alert" className="rounded-xl bg-danger/10 px-3 py-2.5 text-sm font-medium text-danger">{formError}</p>}
           <div className="flex justify-end gap-2 border-t border-line pt-4">
             <Button type="button" onClick={onClose}>Cancel</Button>
             <Button type="submit" variant="primary" disabled={saving} icon={<Check size={16} />}>{saving ? 'Saving…' : 'Save variable'}</Button>
@@ -113,10 +113,10 @@ function DeleteConfirmation({
 
   return (
     <Modal role="alertdialog" labelledBy="delete-title" onClose={onCancel} className="max-w-md">
-        <div className="grid size-11 place-items-center rounded-2xl bg-red/10 text-red"><CircleAlert aria-hidden="true" size={22} /></div>
+        <div className="grid size-11 place-items-center rounded-2xl bg-danger/10 text-danger"><CircleAlert aria-hidden="true" size={22} /></div>
         <h2 id="delete-title" className="mt-4 text-xl font-bold">Delete this variable?</h2>
-        <p className="mt-2 text-sm leading-6 text-ink-muted">This permanently removes <code className="rounded bg-blue-soft px-1.5 py-0.5 font-mono font-bold text-ink">{variable.key}</code> from this app's saved variables.</p>
-        {error && <p role="alert" className="mt-4 rounded-xl bg-red/10 px-3 py-2.5 text-sm font-medium text-red">{error}</p>}
+        <p className="mt-2 text-sm leading-6 text-muted">This permanently removes <code className="rounded bg-surface px-1.5 py-0.5 font-mono font-bold text-ink">{variable.key}</code> from this app's saved variables.</p>
+        {error && <p role="alert" className="mt-4 rounded-xl bg-danger/10 px-3 py-2.5 text-sm font-medium text-danger">{error}</p>}
         <div className="mt-6 flex justify-end gap-2">
           <Button type="button" onClick={onCancel} disabled={deleting}>Keep variable</Button>
           <Button type="button" variant="danger" disabled={deleting} icon={<Trash2 aria-hidden="true" size={15} />} onClick={() => void confirm()}>{deleting ? 'Deleting…' : 'Delete variable'}</Button>
@@ -159,8 +159,8 @@ function ImportDialog({
     <Modal labelledBy="import-title" onClose={close} className="max-w-2xl">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">
-            <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-blue-soft text-ink"><FileText size={19} /></div>
-            <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-red">Review before saving</p><h2 id="import-title" className="mt-1 text-xl font-bold">Import preview</h2></div>
+            <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface text-ink"><FileText size={19} /></div>
+            <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-danger">Review before saving</p><h2 id="import-title" className="mt-1 text-xl font-bold">Import preview</h2></div>
           </div>
           <Button type="button" variant="quiet" className="size-9 min-h-9 px-0" aria-label="Close import preview" onClick={close}><X size={18} /></Button>
         </div>
@@ -170,20 +170,20 @@ function ImportDialog({
           <div className="count-card col-span-2 sm:col-span-1"><span className="count-number">{preview.invalidLines.length}</span><span className="count-label">Invalid lines</span></div>
         </div>
         {preview.added.length + preview.updated.length > 0 && (
-          <div className="mt-5 max-h-40 overflow-auto rounded-xl border border-line bg-white px-4 py-3 text-sm">
-            {preview.added.map((key) => <p key={`new-${key}`} className="flex items-center gap-2 py-1"><span className="size-2 rounded-full bg-green-dot" /> <code className="font-mono">{key}</code><span className="ml-auto text-xs text-ink-muted">new</span></p>)}
-            {preview.updated.map((key) => <p key={`updated-${key}`} className="flex items-center gap-2 py-1"><span className="size-2 rounded-full bg-blue" /> <code className="font-mono">{key}</code><span className="ml-auto text-xs text-ink-muted">update</span></p>)}
+          <div className="mt-5 max-h-40 overflow-auto rounded-xl border border-line bg-surface px-4 py-3 text-sm">
+            {preview.added.map((key) => <p key={`new-${key}`} className="flex items-center gap-2 py-1"><span className="size-2 rounded-full bg-success" /> <code className="font-mono">{key}</code><span className="ml-auto text-xs text-muted">new</span></p>)}
+            {preview.updated.map((key) => <p key={`updated-${key}`} className="flex items-center gap-2 py-1"><span className="size-2 rounded-full bg-secondary" /> <code className="font-mono">{key}</code><span className="ml-auto text-xs text-muted">update</span></p>)}
           </div>
         )}
         {preview.invalidLines.length > 0 && (
-          <div className="mt-4 rounded-xl border border-red/20 bg-red/5 p-4">
-            <p className="text-sm font-bold text-red">Fix these lines before importing</p>
-            <ul className="mt-2 space-y-1.5 text-sm text-ink-muted">{preview.invalidLines.map((line) => <li key={line.line}>Line {line.line}: {line.message}</li>)}</ul>
-            <p className="mt-3 text-xs leading-5 text-ink-muted">No changes will be applied while any invalid line remains.</p>
+          <div className="mt-4 rounded-xl border border-danger/20 bg-danger/5 p-4">
+            <p className="text-sm font-bold text-danger">Fix these lines before importing</p>
+            <ul className="mt-2 space-y-1.5 text-sm text-muted">{preview.invalidLines.map((line) => <li key={line.line}>Line {line.line}: {line.message}</li>)}</ul>
+            <p className="mt-3 text-xs leading-5 text-muted">No changes will be applied while any invalid line remains.</p>
           </div>
         )}
-        {preview.invalidLines.length === 0 && preview.added.length + preview.updated.length === 0 && <p className="mt-5 rounded-xl bg-blue-soft/60 p-4 text-sm text-ink-muted">This file contains no variable changes to apply.</p>}
-        {error && <p role="alert" className="mt-4 rounded-xl bg-red/10 px-3 py-2.5 text-sm font-medium text-red">{error}</p>}
+        {preview.invalidLines.length === 0 && preview.added.length + preview.updated.length === 0 && <p className="mt-5 rounded-xl bg-surface/60 p-4 text-sm text-muted">This file contains no variable changes to apply.</p>}
+        {error && <p role="alert" className="mt-4 rounded-xl bg-danger/10 px-3 py-2.5 text-sm font-medium text-danger">{error}</p>}
         <div className="mt-6 flex justify-end gap-2 border-t border-line pt-4">
           <Button type="button" onClick={close}>Cancel</Button>
           <Button type="button" variant="primary" disabled={!canApply || applying} icon={<ArrowUpFromLine size={16} />} onClick={() => void apply()}>{applying ? 'Applying…' : 'Apply import'}</Button>
@@ -319,25 +319,25 @@ export default function VariablesPage() {
     <WorkspaceLayout>
       <section className="mb-9 grid gap-8 lg:grid-cols-[1fr_260px] lg:items-end">
         <div>
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-line bg-white/75 px-3 py-1.5 text-xs font-semibold text-ink-muted"><Sparkles aria-hidden="true" size={14} className="text-red" /> Your environment, organized</div>
-          <h1 className="max-w-2xl text-3xl font-bold leading-tight tracking-[-0.04em] sm:text-4xl">A calmer place for your <span className="text-red">environment variables.</span></h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-ink-muted sm:text-base">Keep the values you use across projects in one private, user-scoped workspace.</p>
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-line bg-accent/20 px-3 py-1.5 text-xs font-semibold text-muted"><Sparkles aria-hidden="true" size={14} className="text-ink" /> Your environment, organized</div>
+          <h1 className="max-w-2xl text-3xl font-bold leading-tight tracking-[-0.04em] sm:text-4xl">A calmer place for your <span className="text-danger">environment variables.</span></h1>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-muted sm:text-base">Keep the values you use across projects in one private, user-scoped workspace.</p>
         </div>
-        <div className="rounded-2xl border border-line bg-white/80 p-4 shadow-card">
-          <div className="flex items-start gap-3"><div className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg bg-blue-soft text-ink"><Shield size={16} /></div><div><p className="text-sm font-bold">Saved here, not everywhere</p><p className="mt-1 text-xs leading-5 text-ink-muted">Existing shells are unchanged. Enable Bash or Zsh integration below to load saved values in new terminal sessions.</p></div></div>
+        <div className="rounded-2xl border border-line bg-surface/80 p-4 shadow-card">
+          <div className="flex items-start gap-3"><div className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg bg-surface text-ink"><Shield size={16} /></div><div><p className="text-sm font-bold">Saved here, not everywhere</p><p className="mt-1 text-xs leading-5 text-muted">Existing shells are unchanged. Enable Bash or Zsh integration below to load saved values in new terminal sessions.</p></div></div>
         </div>
       </section>
 
-      <section aria-labelledby="variables-heading" className="overflow-hidden rounded-3xl border border-line bg-white shadow-card">
+      <section aria-labelledby="variables-heading" className="overflow-hidden rounded-3xl border border-line bg-surface shadow-card">
         <div className="flex flex-col gap-4 border-b border-line px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <div><div className="flex items-center gap-2"><h2 id="variables-heading" className="text-lg font-bold tracking-tight">Your variables</h2><span className="rounded-full bg-cream px-2.5 py-1 text-xs font-bold text-ink-muted">{variables.length}</span></div><p className="mt-1 text-sm text-ink-muted">Only visible to your user account</p></div>
+          <div><div className="flex items-center gap-2"><h2 id="variables-heading" className="text-lg font-bold tracking-tight">Your variables</h2><span className="rounded-full bg-canvas px-2.5 py-1 text-xs font-bold text-muted">{variables.length}</span></div><p className="mt-1 text-sm text-muted">Only visible to your user account</p></div>
           <div className="flex flex-wrap gap-2">
             <Button type="button" onClick={() => void startImport()} disabled={importing} icon={<ArrowDownToLine size={16} />}>{importing ? 'Choosing file…' : 'Import .env'}</Button>
             <Button type="button" variant="primary" onClick={() => { setActionError(''); setEditor(null) }} icon={<Plus size={17} />}>Add variable</Button>
           </div>
         </div>
-        {notice && <div role="status" className="flex items-center gap-2 border-b border-line bg-green-soft px-6 py-3 text-sm font-semibold text-green-text"><Check size={16} />{notice}<button type="button" aria-label="Dismiss message" className="ml-auto rounded p-1 hover:bg-white/70" onClick={() => setNotice('')}><X size={15} /></button></div>}
-        {actionError && <div role="alert" className="flex items-start gap-2 border-b border-line bg-red/5 px-6 py-3 text-sm text-red"><CircleAlert size={16} className="mt-0.5 shrink-0" />{actionError}<button type="button" aria-label="Dismiss error" className="ml-auto rounded p-1 hover:bg-white/70" onClick={() => setActionError('')}><X size={15} /></button></div>}
+        {notice && <div role="status" className="flex items-center gap-2 border-b border-line bg-success/10 px-6 py-3 text-sm font-semibold text-ink"><Check className="text-success" size={16} />{notice}<button type="button" aria-label="Dismiss message" className="ml-auto rounded p-1 hover:bg-surface/70" onClick={() => setNotice('')}><X size={15} /></button></div>}
+        {actionError && <div role="alert" className="flex items-start gap-2 border-b border-line bg-danger/5 px-6 py-3 text-sm text-danger"><CircleAlert size={16} className="mt-0.5 shrink-0" />{actionError}<button type="button" aria-label="Dismiss error" className="ml-auto rounded p-1 hover:bg-surface/70" onClick={() => setActionError('')}><X size={15} /></button></div>}
         <VariableCollection
           variables={variables}
           filteredVariables={filteredVariables}
@@ -352,32 +352,32 @@ export default function VariablesPage() {
         />
       </section>
 
-      <section aria-labelledby="shell-integration-heading" className="mt-6 overflow-hidden rounded-3xl border border-line bg-white shadow-card">
+      <section aria-labelledby="shell-integration-heading" className="mt-6 overflow-hidden rounded-3xl border border-line bg-surface shadow-card">
         <div className="border-b border-line px-5 py-5 sm:px-6">
           <div className="flex items-start gap-3">
-            <div className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-xl bg-blue-soft text-ink"><Terminal aria-hidden="true" size={18} /></div>
+            <div className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-xl bg-surface text-ink"><Terminal aria-hidden="true" size={18} /></div>
             <div>
               <h2 id="shell-integration-heading" className="text-lg font-bold tracking-tight">Shell integration</h2>
-              <p className="mt-1 max-w-3xl text-sm leading-6 text-ink-muted">Opt in separately for each shell to make your managed variables available in new terminal sessions, for example with <code className="rounded bg-cream px-1 font-mono text-xs">echo $VAR_NAME</code>.</p>
+              <p className="mt-1 max-w-3xl text-sm leading-6 text-muted">Opt in separately for each shell to make your managed variables available in new terminal sessions, for example with <code className="rounded bg-canvas px-1 font-mono text-xs">echo $VAR_NAME</code>.</p>
             </div>
           </div>
-          <p className="mt-4 rounded-xl bg-cream/70 px-4 py-3 text-sm leading-6 text-ink-muted">Enabling or disabling integration edits only this app's managed block in your user startup file—not other settings. It affects new shells only, and exported values are inherited by commands started from those shells. To load the change in an existing shell, source its file (for example, <code className="font-mono text-xs">source ~/.bashrc</code> or <code className="font-mono text-xs">source ~/.zshrc</code>).</p>
+          <p className="mt-4 rounded-xl bg-canvas/70 px-4 py-3 text-sm leading-6 text-muted">Enabling or disabling integration edits only this app's managed block in your user startup file—not other settings. It affects new shells only, and exported values are inherited by commands started from those shells. To load the change in an existing shell, source its file (for example, <code className="font-mono text-xs">source ~/.bashrc</code> or <code className="font-mono text-xs">source ~/.zshrc</code>).</p>
         </div>
-        {shellIntegrationLoadError && <div role="alert" className="flex flex-wrap items-center gap-3 border-b border-line bg-red/5 px-5 py-3 text-sm text-red sm:px-6"><CircleAlert aria-hidden="true" size={16} />{shellIntegrationLoadError}<Button type="button" className="ml-auto" onClick={() => void refreshShellIntegrations()}>Retry shell status</Button></div>}
-        {shellIntegrationActionError && <p role="alert" className="border-b border-line bg-red/5 px-5 py-3 text-sm text-red sm:px-6">{shellIntegrationActionError}</p>}
-        {shellIntegrationNotice && <p role="status" className="border-b border-line bg-green-soft px-5 py-3 text-sm font-semibold text-green-text sm:px-6">{shellIntegrationNotice}</p>}
+        {shellIntegrationLoadError && <div role="alert" className="flex flex-wrap items-center gap-3 border-b border-line bg-danger/5 px-5 py-3 text-sm text-danger sm:px-6"><CircleAlert aria-hidden="true" size={16} />{shellIntegrationLoadError}<Button type="button" className="ml-auto" onClick={() => void refreshShellIntegrations()}>Retry shell status</Button></div>}
+        {shellIntegrationActionError && <p role="alert" className="border-b border-line bg-danger/5 px-5 py-3 text-sm text-danger sm:px-6">{shellIntegrationActionError}</p>}
+        {shellIntegrationNotice && <p role="status" className="border-b border-line bg-success/10 px-5 py-3 text-sm font-semibold text-ink sm:px-6">{shellIntegrationNotice}</p>}
         <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-5">
           {SHELL_INTEGRATIONS.map(({ shell, label, startupFile }) => {
             const status = shellIntegrationStatuses.find((integration) => integration.shell === shell)
             const busy = shellIntegrationLoading || shellIntegrationActionShell !== null
             return (
-              <article key={shell} className="rounded-2xl border border-line bg-white p-4">
+              <article key={shell} className="rounded-2xl border border-line bg-surface p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h3 className="font-bold">{label}</h3>
-                    <p className="mt-1 text-xs text-ink-muted">Managed file: <code className="font-mono">{status?.startupFile ?? startupFile}</code></p>
+                    <p className="mt-1 text-xs text-muted">Managed file: <code className="font-mono">{status?.startupFile ?? startupFile}</code></p>
                   </div>
-                  <p className={`rounded-full px-2.5 py-1 text-xs font-bold ${status?.enabled ? 'bg-green-soft text-green-text' : 'bg-cream text-ink-muted'}`}>
+                  <p className={`rounded-full px-2.5 py-1 text-xs font-bold ${status?.enabled ? 'bg-success/10 text-ink' : 'bg-canvas text-muted'}`}>
                     {shellIntegrationLoading ? 'Checking…' : status ? (status.enabled ? 'Enabled' : 'Disabled') : 'Unavailable'}
                   </p>
                 </div>
@@ -395,7 +395,7 @@ export default function VariablesPage() {
           })}
         </div>
       </section>
-      <p className="mt-4 flex items-start gap-2 px-1 text-xs leading-5 text-ink-muted"><Shield aria-hidden="true" size={14} className="mt-0.5 shrink-0" />Values are masked until you choose to reveal them. The app never runs the contents of imported files.</p>
+      <p className="mt-4 flex items-start gap-2 px-1 text-xs leading-5 text-muted"><Shield aria-hidden="true" size={14} className="mt-0.5 shrink-0" />Values are masked until you choose to reveal them. The app never runs the contents of imported files.</p>
 
       {editor !== undefined && <VariableEditor variable={editor} variables={variables} onClose={() => setEditor(undefined)} onSaved={refresh} />}
       {deleting && <DeleteConfirmation variable={deleting} onCancel={() => setDeleting(null)} onConfirm={removeVariable} />}

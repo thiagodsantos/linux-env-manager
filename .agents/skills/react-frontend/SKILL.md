@@ -28,7 +28,7 @@ Use this skill for frontend implementation or review in this repository. Read `P
 
 ## Visual design and component architecture
 
-- Follow the palette in `PLAN.md`: `#780000`, `#C1121F`, `#FDF0D5`, `#003049`, and `#669BBC`. Define named design tokens and expose them through Tailwind; prefer semantic tokens over scattering raw hex values through components.
+- Follow the palette in `PLAN.md`: `#05668D`, `#427AA1`, `#EBF2FA`, `#679436`, and `#A5BE00`. Define named design tokens and expose them through Tailwind; prefer semantic tokens over scattering raw hex values through components.
 - Use Inter as the global UI font from [Google Fonts](https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900), with a system sans-serif fallback.
 - Verify accessible contrast for actual text, control, and focus-indicator color pairings; do not assume every palette combination is readable.
 - Organize reusable UI with a pragmatic Atomic Design structure: atoms for primitives, molecules for small combinations, organisms for larger interface sections, templates for page layouts, and pages for route-level composition.

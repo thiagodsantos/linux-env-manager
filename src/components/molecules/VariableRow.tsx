@@ -17,9 +17,9 @@ export function VariableRow({ variable, onEdit, onDelete }: VariableRowProps) {
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <code className="truncate font-mono text-sm font-bold text-ink">{variable.key}</code>
-          <span className="rounded-md bg-blue-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ink-muted">user</span>
+          <span className="rounded-md bg-surface px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted">user</span>
         </div>
-        <p className="mt-1.5 max-w-2xl truncate font-mono text-sm text-ink-muted" aria-label={`${variable.key} value`}>
+        <p className="mt-1.5 max-w-2xl truncate font-mono text-sm text-muted" aria-label={`${variable.key} value`}>
           {revealed ? variable.value : '••••••••••••'}
         </p>
       </div>
@@ -36,7 +36,7 @@ export function VariableRow({ variable, onEdit, onDelete }: VariableRowProps) {
         <Button type="button" variant="quiet" className="size-9 min-h-9 px-0" aria-label={`Edit ${variable.key}`} onClick={() => onEdit(variable)}>
           <Pencil aria-hidden="true" size={16} />
         </Button>
-        <Button type="button" variant="quiet" className="size-9 min-h-9 px-0 text-red hover:bg-red/10 hover:text-red" aria-label={`Delete ${variable.key}`} onClick={() => onDelete(variable)}>
+        <Button type="button" variant="quiet" className="size-9 min-h-9 px-0 text-danger hover:bg-danger/10 hover:text-danger" aria-label={`Delete ${variable.key}`} onClick={() => onDelete(variable)}>
           <Trash2 aria-hidden="true" size={17} />
         </Button>
       </div>
