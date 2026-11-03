@@ -16,6 +16,7 @@ Use this skill for backend implementation or review in this repository. Read `PL
 ## Safety and behavior
 
 - Store data only in the app-owned per-user configuration location resolved through supported Tauri APIs. Do not edit `/etc/environment`, arbitrary paths, or shell startup files as part of normal CRUD.
+- Shell integration is separately opt-in and supports Bash/Zsh only. Add/remove only the clearly marked managed block in the selected user's `.bashrc` or `.zshrc`; preserve unrelated content. Load the current JSON store using validated, shell-quoted exports, never by sourcing imported contents. Explain that new sessions (or manual re-sourcing) are required and already-running processes are unchanged.
 - Use native file selection for user-chosen imports. Do not trust arbitrary frontend-supplied paths.
 - Parse `.env` contents as data; never source, evaluate, or execute them. Do not log variable values or include them in error messages.
 - Validate keys using the naming rule documented in `PLAN.md`. Reject invalid keys and handle duplicate keys deterministically.
@@ -28,7 +29,7 @@ Use this skill for backend implementation or review in this repository. Read `PL
 ## Design and tests
 
 - Apply SOLID/DRY pragmatically: isolate domain logic and I/O seams, but avoid speculative abstractions or unnecessary dependencies.
-- Unit-test key validation, parser behavior, add/update/delete rules, import merge semantics, and relevant persistence failure cases.
+- Unit-test key validation, parser behavior, add/update/delete rules, import merge semantics, relevant persistence failure cases, and shell quoting/managed-block insertion and removal.
 - Keep parsing and merge logic independently testable without launching the Tauri app.
 - Run relevant Rust formatting, tests, and project quality targets after changes. Report commands and failures accurately; do not claim unrun checks passed.
 - Update `README.md` when implementation changes the documented data location, import syntax, setup, or environment-variable behavior.

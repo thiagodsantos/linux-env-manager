@@ -12,7 +12,7 @@ Use this skill for frontend implementation or review in this repository. Read `P
 - Build the variable list and add/edit/delete/import workflows described in `PLAN.md`.
 - Keep UI components focused on presentation and interaction. Put calls to native functionality behind a small typed API/service module; do not invoke Tauri commands directly from many components.
 - Represent loading, empty, success, validation, and recoverable error states explicitly.
-- Clearly present the manager's persistence boundary: saving does not alter the environment of already-running Linux processes.
+- Clearly present the manager's persistence boundary: saving does not alter the environment of already-running Linux processes. Bash/Zsh support is a separate explicit opt-in for new shell sessions.
 
 ## Frontend conventions
 
@@ -24,6 +24,7 @@ Use this skill for frontend implementation or review in this repository. Read `P
 - Deletion must require a confirmation modal identifying the variable key. Cancel must not call the delete API; confirm should call it once and handle errors without falsely removing the row.
 - Import must show a preview that distinguishes new keys, updated keys, and invalid/unsupported lines before applying. Reflect the backend's actual parser semantics; do not duplicate or silently diverge from backend validation/merge rules.
 - Do not silently overwrite a duplicate key from the add form. Editing must show validation errors and prevent collisions.
+- Shell integration controls are opt-in per supported shell (Bash/Zsh); explain the managed `.bashrc`/`.zshrc` block, disable/removal behavior, and that existing shells require re-sourcing. Keep calls behind the typed API.
 
 ## Visual design and component architecture
 
@@ -36,7 +37,7 @@ Use this skill for frontend implementation or review in this repository. Read `P
 ## Testing and quality
 
 - Use the project's configured Vitest and React Testing Library setup. Test user-visible behavior with accessible queries and user interactions rather than component internals.
-- Mock the typed native API boundary for UI tests. Cover create/edit validation, duplicate handling, reveal/hide, delete confirmation cancel/confirm, import preview/apply feedback, and loading/empty/error states.
+- Mock the typed native API at the boundary; do not mock component internals. Cover create/edit validation, duplicate handling, reveal/hide, delete confirmation cancel/confirm, import preview/apply feedback, shell integration enable/disable, and loading/error/empty states.
 - Maintain configured coverage thresholds above 80% for statements, branches, functions, and lines; add meaningful tests rather than weakening thresholds.
 - Run focused frontend tests, type checking, linting, and relevant Makefile quality targets after changes. State clearly which checks were run and whether they passed.
 - Update frontend-facing documentation when user flows or limitations change.

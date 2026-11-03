@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --color-cream: #fdf0d5;
+  --color-red: #c1121f;
+  --color-red-dark: #780000;
+  --color-ink: #003049;
+  --color-ink-muted: #405866;
+  --color-blue: #669bbc;
+  --color-blue-soft: #e5eef2;
+  --color-line: #d9d2c4;
+  --color-green-dot: #245b4a;
+  --color-green-soft: #e6f2ec;
+  --color-green-text: #174a38;
+  --shadow-card: 0 14px 40px rgb(0 48 73 / 6%);
+}
+
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: #003049;
+  background: #fdf0d5;
+  font-optical-sizing: auto;
+}
+
+* { box-sizing: border-box; }
+body { min-width: 360px; min-height: 100vh; margin: 0; }
+button, input, textarea { font: inherit; }
+button { cursor: pointer; }
+::selection { color: #fff; background: #003049; }
+
+.field-label { display: block; margin-bottom: 0.45rem; font-size: 0.82rem; font-weight: 700; color: #003049; }
+.field-input { display: block; width: 100%; min-height: 2.75rem; border: 1px solid #c9c4b9; border-radius: 0.8rem; background: #fff; padding: 0.65rem 0.8rem; color: #003049; font-size: 0.875rem; outline: none; transition: border-color 140ms, box-shadow 140ms; }
+.field-input::placeholder { color: #647680; }
+.field-input:focus-visible { border-color: #003049; box-shadow: 0 0 0 3px rgb(0 48 73 / 16%); }
+.field-input[aria-invalid="true"] { border-color: #c1121f; }
+.field-hint { margin-top: 0.4rem; color: #405866; font-size: 0.75rem; line-height: 1.3rem; }
+.field-error { margin-top: 0.4rem; color: #780000; font-size: 0.75rem; line-height: 1.3rem; }
+.modal-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; overflow-y: auto; background: rgb(0 32 48 / 48%); padding: 1rem; }
+.modal-panel { width: min(100%, 34rem); max-height: calc(100vh - 2rem); overflow-y: auto; border: 1px solid #d9d2c4; border-radius: 1.5rem; background: #fffefa; padding: 1.5rem; box-shadow: 0 25px 80px rgb(0 32 48 / 25%); }
+.count-card { display: flex; min-height: 4.25rem; flex-direction: column; justify-content: center; border-radius: 0.9rem; background: #f7f2e8; padding: 0.7rem 0.9rem; }
+.count-number { font-size: 1.1rem; font-weight: 800; line-height: 1.2; }
+.count-label { margin-top: 0.2rem; font-size: 0.7rem; font-weight: 600; color: #405866; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}

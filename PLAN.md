@@ -15,7 +15,7 @@ For the MVP:
 - Manage a **user-scoped** set of variables, not system-wide variables.
 - Store the canonical data in an app-owned file under Tauri's per-user application configuration directory. Use a documented, versionable format (JSON is recommended for the canonical store); do not edit `/etc/environment`, shell startup files, or arbitrary paths implicitly.
 - Make it clear in the UI and README that saving changes updates the manager's persistent store, not the current process environment.
-- Treat loading these values into future shells as a separate, **opt-in** integration. Before implementing it, choose supported shells and installation/removal behavior. Never silently modify shell startup files. If shell integration is included in the first release, write a narrowly scoped, reversible managed snippet and document its limits.
+- Loading values into future shells is a separate, **opt-in** integration. The first release supports Bash and Zsh, configured independently in the app. Enabling adds a narrowly scoped managed block to only `~/.bashrc` or `~/.zshrc`; disabling removes only that block and preserves unrelated contents. The block reads the app-owned JSON store and emits safely quoted exports; it never sources imported file contents. Changes apply to new shell sessions (or after manually sourcing the RC file), not already-running processes. Python 3 is required for shell integration.
 
 This boundary avoids implying that a GUI can update every Linux process and prevents accidental edits to system or user shell configuration.
 
@@ -113,20 +113,20 @@ Provide reusable, focused instructions under `.agents/skills/` so Zed can apply 
 
 ## 7. Delivery phases
 
-1. **Confirm scope and safety** — Confirm user-scoped persistence and decide whether shell integration belongs in MVP. Define import syntax and malformed-line policy.
+1. **Confirm scope and safety** — Keep persistence user-scoped; Bash/Zsh integration is approved but remains explicit opt-in. Define import syntax and malformed-line policy.
 2. **Scaffold** — Create the Tauri v2 React/TypeScript/Vite project, establish latest stable Node/PNPM versions, add aliases, Tailwind, scripts, Makefile, `.gitignore`, initial README, and the project-local backend and frontend Zed skills.
 3. **Domain and storage** — Implement and test validation, canonical persistence, safe atomic writes, CRUD, and `.env` parsing/merge logic in Rust.
 4. **Native API** — Add typed Tauri commands and native file selection for import; configure the minimum permissions/capabilities required.
 5. **Frontend workflows** — Establish the palette tokens and Inter typography, organize reusable components with a pragmatic Atomic Design structure, then build the variable list, add/edit forms, masked values, delete confirmation, import preview/apply flow, and error states.
 6. **Verification and documentation** — Reach the enforced coverage threshold, run all quality gates, verify a Linux development/build workflow, and document installation, usage, persistence boundaries, import syntax, and limitations.
-7. **Optional shell integration** — If approved, implement explicit opt-in setup and removal for the selected shells, with tests and rollback-safe documentation. Keep it out of the core persistence path.
+7. **Opt-in shell integration** — Support Bash and Zsh using reversible managed blocks in the user's `.bashrc` and `.zshrc`; test quoting and block removal. Keep it separate from normal CRUD and document that it only affects future shells.
 
 ## 8. Definition of done
 
 - CRUD and `.env` import behavior meet the acceptance criteria, including update-existing/add-new semantics and confirmed deletion.
 - No frontend internal relative imports remain; alias configuration works in Vite, TypeScript, tests, and linting.
 - `make check` (or its documented equivalent) passes, and frontend coverage thresholds are enforced above 80% in every configured category.
-- Linux setup, run, build, test, import semantics, data location, and process-environment limitations are documented in `README.md`.
+- Linux setup, run, build, test, import semantics, data location, opt-in Bash/Zsh shell integration, and process-environment limitations are documented in `README.md`.
 - The frontend consistently uses the specified Coolors palette and Inter font, with accessible contrast, and organizes components using the documented Atomic Design levels.
-- No secret values are logged, imported contents are never executed, and shell/system configuration is not modified without explicit user opt-in.
+- No secret values are logged, imported contents are never executed, and shell/system configuration is not modified without explicit user opt-in. Shell integration changes only its marked user-level Bash/Zsh block and is removable.
 - Project-local Zed skills exist at `.agents/skills/tauri-backend/SKILL.md` and `.agents/skills/react-frontend/SKILL.md`, and their instructions agree with this plan.
