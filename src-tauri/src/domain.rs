@@ -1,6 +1,4 @@
-use crate::models::{
-    ImportResult, InvalidImportLine, ParsedEnv, SaveVariableInput, Variables,
-};
+use crate::models::{ImportResult, InvalidImportLine, ParsedEnv, SaveVariableInput, Variables};
 
 pub fn valid_key(key: &str) -> bool {
     let mut characters = key.chars();
@@ -111,13 +109,18 @@ pub(crate) fn merge_import(existing: &Variables, incoming: &Variables) -> (Varia
     (merged, result)
 }
 
-pub(crate) fn apply_save(variables: &mut Variables, input: SaveVariableInput) -> Result<(), String> {
+pub(crate) fn apply_save(
+    variables: &mut Variables,
+    input: SaveVariableInput,
+) -> Result<(), String> {
     validate_key(&input.key)?;
     validate_value(&input.value)?;
 
     if let Some(original_key) = input.original_key {
         if !variables.contains_key(&original_key) {
-            return Err("The variable being edited no longer exists. Reload and try again.".to_string());
+            return Err(
+                "The variable being edited no longer exists. Reload and try again.".to_string(),
+            );
         }
         if input.key != original_key && variables.contains_key(&input.key) {
             return Err("A variable with this key already exists.".to_string());

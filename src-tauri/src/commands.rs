@@ -32,12 +32,19 @@ fn set_shell_integration(
 fn list_variables(app: AppHandle, state: State<'_, AppState>) -> Result<Vec<Variable>, String> {
     let _guard = lock_store(&state)?;
     with_store(&app, |path| {
-        Ok(load_store(path)?.into_iter().map(|(key, value)| Variable { key, value }).collect())
+        Ok(load_store(path)?
+            .into_iter()
+            .map(|(key, value)| Variable { key, value })
+            .collect())
     })
 }
 
 #[tauri::command]
-fn save_variable(app: AppHandle, state: State<'_, AppState>, input: SaveVariableInput) -> Result<(), String> {
+fn save_variable(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    input: SaveVariableInput,
+) -> Result<(), String> {
     let _guard = lock_store(&state)?;
     with_store(&app, |path| save_variable_at(path, input))
 }
@@ -49,11 +56,21 @@ fn delete_variable(app: AppHandle, state: State<'_, AppState>, key: String) -> R
 }
 
 #[tauri::command]
-async fn preview_import(app: AppHandle, state: State<'_, AppState>) -> Result<Option<ImportPreview>, String> {
-    let Some(file) = app.dialog().file().add_filter("Environment files", &["env"]).blocking_pick_file() else {
+async fn preview_import(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<Option<ImportPreview>, String> {
+    let Some(file) = app
+        .dialog()
+        .file()
+        .add_filter("Environment files", &["env"])
+        .blocking_pick_file()
+    else {
         return Ok(None);
     };
-    let file_path = file.into_path().map_err(|_| "Unable to access the selected environment file.".to_string())?;
+    let file_path = file
+        .into_path()
+        .map_err(|_| "Unable to access the selected environment file.".to_string())?;
     let content = fs::read_to_string(file_path)
         .map_err(|_| "Unable to read the selected file as UTF-8 text.".to_string())?;
     let parsed = parse_env(&content);
@@ -70,27 +87,46 @@ async fn preview_import(app: AppHandle, state: State<'_, AppState>) -> Result<Op
         updated: changes.updated,
         invalid_lines: parsed.invalid_lines.clone(),
     };
-    state.pending_imports.lock()
+    state
+        .pending_imports
+        .lock()
         .map_err(|_| "Import preview state is unavailable. Restart the app and try again.".to_string())?
-        .insert(token, PendingImport { variables: parsed.variables, invalid_lines: parsed.invalid_lines });
+        .insert(
+            token,
+            PendingImport {
+                variables: parsed.variables,
+                invalid_lines: parsed.invalid_lines,
+            },
+        );
     Ok(Some(preview))
 }
 
 #[tauri::command]
 fn discard_import(state: State<'_, AppState>, token: String) -> Result<(), String> {
-    state.pending_imports.lock()
+    state
+        .pending_imports
+        .lock()
         .map_err(|_| "Import preview state is unavailable. Restart the app and try again.".to_string())?
         .remove(&token);
     Ok(())
 }
 
 #[tauri::command]
-fn apply_import(app: AppHandle, state: State<'_, AppState>, token: String) -> Result<ImportResult, String> {
+fn apply_import(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    token: String,
+) -> Result<ImportResult, String> {
     let _store_guard = lock_store(&state)?;
     let path = app_store_path(&app)?;
-    let mut pending = state.pending_imports.lock()
+    let mut pending = state
+        .pending_imports
+        .lock()
         .map_err(|_| "Import preview state is unavailable. Restart the app and try again.".to_string())?;
-    let batch = pending.get(&token).cloned().ok_or_else(|| "This import preview expired. Choose the file again.".to_string())?;
+    let batch = pending
+        .get(&token)
+        .cloned()
+        .ok_or_else(|| "This import preview expired. Choose the file again.".to_string())?;
     let result = commit_import_at(&path, &batch)?;
     pending.remove(&token);
     Ok(result)
