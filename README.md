@@ -2,7 +2,7 @@
 
 A small Tauri v2 desktop app for managing a **user-scoped, app-owned** collection of environment variables. Add, edit, delete (with confirmation), and import variables from a `.env` file.
 
-> **Important:** Linux environment variables belong to processes. Saving here updates this app's persistent store only; it does not change the environment of this running app, existing terminals, or other processes. This MVP does not modify `/etc/environment`, shell startup files, or any other shell/system configuration. Loading saved values into future shells is not implemented.
+> **Important:** Linux environment variables belong to processes. Saving updates this app's user-scoped store; it does not change this running app, existing terminals, or other processes. Bash/Zsh startup integration is available separately and is always opt-in. The app never edits `/etc/environment` or system-wide configuration.
 
 The interface uses Inter from Google Fonts and falls back to the system sans-serif font. When online, the WebView requests the font from Google Fonts; variable data is not sent with that request.
 
@@ -12,16 +12,17 @@ The interface uses Inter from Google Fonts and falls back to the system sans-ser
 - Node.js `24.14.0` (see `.nvmrc`)
 - Corepack and PNPM `12.16.1`
 - Rust stable toolchain with Cargo (install with [rustup](https://rustup.rs/))
+- Python 3 for optional Bash/Zsh shell integration
 
 Tauri's Linux build dependencies vary by distribution. Examples:
 
 ```sh
 # Fedora
-sudo dnf install pkgconf-pkg-config gtk3-devel webkit2gtk4.1-devel openssl-devel curl wget file \
+sudo dnf install pkgconf-pkg-config gtk3-devel webkit2gtk4.1-devel openssl-devel curl wget file python3 \
   libxdo-devel librsvg2-devel libayatana-appindicator-gtk3
 
 # Debian / Ubuntu
-sudo apt install build-essential pkg-config curl wget file libgtk-3-dev libssl-dev libxdo-dev \
+sudo apt install build-essential pkg-config curl wget file python3 libgtk-3-dev libssl-dev libxdo-dev \
   libayatana-appindicator3-dev librsvg2-dev libwebkit2gtk-4.1-dev
 ```
 
@@ -67,7 +68,7 @@ The parser treats the selected file as UTF-8 text; it never executes or sources 
 - Leading/trailing whitespace around the assignment and unquoted value is trimmed.
 - Matching single or double quotes around the entire value are removed. Backslash escapes are not interpreted. Interpolation such as `$HOME` is kept literally. Inline comments are not special and remain part of the value.
 - Repeated keys in one file use the final valid assignment.
-- Invalid keys, assignments without `=`, and unmatched outer quotes are reported by line number. No values or raw malformed content are included in the preview error messages. The entire import is blocked until all invalid lines are fixed.
+- Invalid keys, assignments without `=`, unmatched outer quotes, and NUL characters are reported by line number. No values or raw malformed content are included in the preview error messages. The entire import is blocked until all invalid lines are fixed.
 
 The preview reports keys only, never their values. At apply time, incoming keys replace existing values and new keys are added. The backend validates and persists the merge as a single atomic store update.
 
@@ -75,7 +76,11 @@ The preview reports keys only, never their values. At apply time, incoming keys 
 
 The canonical JSON store is `variables.json` in Tauri's per-user application configuration directory (typically `$XDG_CONFIG_HOME/dev.linuxenvmanager.app/variables.json`, or `~/.config/dev.linuxenvmanager.app/variables.json`). Its format is versioned, writes use a temporary file followed by atomic rename, and Unix files/directories are restricted to the current user where supported. Values are stored as plaintext JSON; this application does not provide encryption. Protect your user account and backups accordingly.
 
-The app does not change system environment settings or shell configuration. Future-shell integration would need to be a separate, explicitly opt-in and reversible feature.
+### Optional Bash/Zsh integration
+
+The **Shell integration** section in the app can be enabled separately for Bash (`~/.bashrc`) and/or Zsh (`~/.zshrc`). Enabling adds only a clearly marked manager-owned block to that user's selected startup file; disabling removes only that block and preserves the rest of the file. The app does not write `/etc/environment` or any system shell configuration.
+
+On each new interactive Bash or Zsh session, the block asks Python 3 to read the current `variables.json` and emit shell-quoted `export` assignments. Imported `.env` text is never sourced or evaluated. Add/edit/delete/import changes are therefore available to the next shell session without copying values into startup files. Exported values are inherited by commands started from that shell. Existing shells and other running processes are unchanged; open a new terminal or manually source the corresponding RC file (for example, `source ~/.bashrc`). Shell integration is opt-in and limited to Bash and Zsh; other shells are not currently supported.
 
 ## Quality checks
 

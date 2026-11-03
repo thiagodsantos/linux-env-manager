@@ -324,7 +324,7 @@ export default function VariablesPage() {
           <p className="mt-3 max-w-2xl text-sm leading-6 text-ink-muted sm:text-base">Keep the values you use across projects in one private, user-scoped workspace.</p>
         </div>
         <div className="rounded-2xl border border-line bg-white/80 p-4 shadow-card">
-          <div className="flex items-start gap-3"><div className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg bg-blue-soft text-ink"><Shield size={16} /></div><div><p className="text-sm font-bold">Saved here, not everywhere</p><p className="mt-1 text-xs leading-5 text-ink-muted">Changes are stored by this app. They do not alter running shells or processes.</p></div></div>
+          <div className="flex items-start gap-3"><div className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg bg-blue-soft text-ink"><Shield size={16} /></div><div><p className="text-sm font-bold">Saved here, not everywhere</p><p className="mt-1 text-xs leading-5 text-ink-muted">Existing shells are unchanged. Enable Bash or Zsh integration below to load saved values in new terminal sessions.</p></div></div>
         </div>
       </section>
 
@@ -361,7 +361,7 @@ export default function VariablesPage() {
               <p className="mt-1 max-w-3xl text-sm leading-6 text-ink-muted">Opt in separately for each shell to make your managed variables available in new terminal sessions, for example with <code className="rounded bg-cream px-1 font-mono text-xs">echo $VAR_NAME</code>.</p>
             </div>
           </div>
-          <p className="mt-4 rounded-xl bg-cream/70 px-4 py-3 text-sm leading-6 text-ink-muted">Enabling or disabling integration edits only this app's managed block in your user startup file—not other settings. It affects new shells only. To load the change in an existing shell, source its file (for example, <code className="font-mono text-xs">source ~/.bashrc</code> or <code className="font-mono text-xs">source ~/.zshrc</code>).</p>
+          <p className="mt-4 rounded-xl bg-cream/70 px-4 py-3 text-sm leading-6 text-ink-muted">Enabling or disabling integration edits only this app's managed block in your user startup file—not other settings. It affects new shells only, and exported values are inherited by commands started from those shells. To load the change in an existing shell, source its file (for example, <code className="font-mono text-xs">source ~/.bashrc</code> or <code className="font-mono text-xs">source ~/.zshrc</code>).</p>
         </div>
         {shellIntegrationLoadError && <div role="alert" className="flex flex-wrap items-center gap-3 border-b border-line bg-red/5 px-5 py-3 text-sm text-red sm:px-6"><CircleAlert aria-hidden="true" size={16} />{shellIntegrationLoadError}<Button type="button" className="ml-auto" onClick={() => void refreshShellIntegrations()}>Retry shell status</Button></div>}
         {shellIntegrationActionError && <p role="alert" className="border-b border-line bg-red/5 px-5 py-3 text-sm text-red sm:px-6">{shellIntegrationActionError}</p>}

@@ -4,6 +4,7 @@ use std::fs::{self, File, OpenOptions};
 use std::io::Write;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::{Mutex, MutexGuard};
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::DialogExt;
@@ -553,6 +554,14 @@ fn atomic_write_startup_file(path: &Path, bytes: &[u8]) -> Result<(), String> {
     Ok(())
 }
 
+fn python3_available() -> bool {
+    Command::new("python3")
+        .arg("--version")
+        .output()
+        .map(|output| output.status.success())
+        .unwrap_or(false)
+}
+
 fn set_shell_integration_at(
     startup_path: &Path,
     store_path: Option<&Path>,
@@ -605,6 +614,9 @@ fn set_shell_integration(
     enabled: bool,
 ) -> Result<(), String> {
     let _guard = lock_store(&state)?;
+    if enabled && !python3_available() {
+        return Err("Python 3 is required for shell integration. Install python3 and retry.".to_string());
+    }
     let startup_path = shell_startup_path(&app, shell)?;
     if enabled {
         let store_path = app_store_file_path(&app)?;

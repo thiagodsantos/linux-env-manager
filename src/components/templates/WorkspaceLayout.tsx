@@ -28,7 +28,7 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
       <main className="mx-auto max-w-6xl px-5 pb-12 pt-9 sm:px-8 sm:pt-12">
         {children}
         <footer className="mt-12 border-t border-line/70 pt-5 text-center text-xs leading-5 text-ink-muted">
-          Your saved values belong to this app. Changes do not update this running session or other processes.
+          Saved values are user-scoped. Existing shells and processes are unchanged; opt in to Bash/Zsh integration below for new terminal sessions.
         </footer>
       </main>
     </div>

@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { variableApi } from '@/api'
-import type { ImportPreview, ImportResult, Variable } from '@/types'
+import { shellIntegrationApi, variableApi } from '@/api'
+import type { ImportPreview, ImportResult, ShellIntegrationStatus, Variable } from '@/types'
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn() }))
 
@@ -15,6 +15,18 @@ describe('typed native API', () => {
     await expect(variableApi.save({ key: 'HOME', value: '/tmp', originalKey: 'HOME' })).resolves.toBeUndefined()
     expect(invoke).toHaveBeenNthCalledWith(1, 'list_variables')
     expect(invoke).toHaveBeenNthCalledWith(2, 'save_variable', { input: { key: 'HOME', value: '/tmp', originalKey: 'HOME' } })
+  })
+
+  it('maps shell integration status and opt-in changes', async () => {
+    const statuses: ShellIntegrationStatus[] = [
+      { shell: 'bash', enabled: true, startupFile: '~/.bashrc' },
+      { shell: 'zsh', enabled: false, startupFile: '~/.zshrc' },
+    ]
+    vi.mocked(invoke).mockResolvedValueOnce(statuses).mockResolvedValueOnce(undefined)
+    await expect(shellIntegrationApi.getStatus()).resolves.toEqual(statuses)
+    await expect(shellIntegrationApi.set({ shell: 'zsh', enabled: true })).resolves.toBeUndefined()
+    expect(invoke).toHaveBeenNthCalledWith(1, 'get_shell_integrations')
+    expect(invoke).toHaveBeenNthCalledWith(2, 'set_shell_integration', { shell: 'zsh', enabled: true })
   })
 
   it('maps delete, preview, and apply calls', async () => {
