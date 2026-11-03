@@ -1,11 +1,7 @@
 {
   "name": "linux-env-manager",
   "private": true,
-<<<<<<< HEAD
   "version": "0.4.0",
-=======
-  "version": "0.3.0",
->>>>>>> origin/main
   "type": "module",
   "packageManager": "pnpm@12.16.1",
   "engines": {
