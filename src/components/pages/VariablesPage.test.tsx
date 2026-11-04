@@ -1,11 +1,17 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { shellIntegrationApi, variableApi } from '@/api'
+import { profileApi, shellIntegrationApi, variableApi } from '@/api'
 import VariablesPage from '@/components/pages/VariablesPage'
 import type { ImportPreview, ShellIntegrationStatus, Variable } from '@/types'
 
 vi.mock('@/api', () => ({
+  profileApi: {
+    list: vi.fn(),
+    create: vi.fn(),
+    setActive: vi.fn(),
+    remove: vi.fn(),
+  },
   shellIntegrationApi: {
     getStatus: vi.fn(),
     set: vi.fn(),
@@ -22,8 +28,8 @@ vi.mock('@/api', () => ({
 }))
 
 const savedVariables: Variable[] = [
-  { key: 'API_TOKEN', value: 'secret-value' },
-  { key: 'HOME', value: '/home/tester' },
+  { key: 'API_TOKEN', value: 'secret-value', inherited: false },
+  { key: 'HOME', value: '/home/tester', inherited: false },
 ]
 
 const goodPreview: ImportPreview = {
@@ -42,6 +48,11 @@ function mockInitialList(variables: Variable[] = savedVariables) {
   vi.mocked(variableApi.list).mockResolvedValue(variables)
 }
 
+async function clickProfileAction(user: ReturnType<typeof userEvent.setup>, name: string) {
+  await user.click(screen.getByText('Profile actions'))
+  await user.click(screen.getByRole('button', { name }))
+}
+
 async function openEditor(user: ReturnType<typeof userEvent.setup>, name: string) {
   await user.click(screen.getByRole('button', { name }))
   return screen.findByRole('dialog', { name: /variable/i })
@@ -49,6 +60,10 @@ async function openEditor(user: ReturnType<typeof userEvent.setup>, name: string
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(profileApi.list).mockResolvedValue([])
+  vi.mocked(profileApi.create).mockResolvedValue(undefined)
+  vi.mocked(profileApi.setActive).mockResolvedValue(undefined)
+  vi.mocked(profileApi.remove).mockResolvedValue(undefined)
   mockInitialList()
   vi.mocked(shellIntegrationApi.getStatus).mockResolvedValue(disabledShells)
   vi.mocked(shellIntegrationApi.set).mockResolvedValue(undefined)
@@ -65,7 +80,7 @@ describe('VariablesPage', () => {
     let resolveList!: (values: Variable[]) => void
     vi.mocked(variableApi.list).mockReturnValue(new Promise((resolve) => { resolveList = resolve }))
     render(<VariablesPage />)
-    expect(screen.getByRole('status')).toHaveTextContent('Loading')
+    expect(screen.getAllByRole('status').some((status) => status.textContent?.includes('Loading'))).toBe(true)
     resolveList(savedVariables)
     expect(await screen.findByText('API_TOKEN')).toBeInTheDocument()
     expect(screen.getByLabelText('API_TOKEN value')).toHaveTextContent('••••••••••••')
@@ -102,7 +117,7 @@ describe('VariablesPage', () => {
     await user.clear(screen.getByLabelText('Key'))
     await user.type(screen.getByLabelText('Key'), 'NEW_KEY')
     await user.click(screen.getByRole('button', { name: 'Save variable' }))
-    await waitFor(() => expect(variableApi.save).toHaveBeenCalledWith({ key: 'NEW_KEY', value: 'value', originalKey: null }))
+    await waitFor(() => expect(variableApi.save).toHaveBeenCalledWith({ profileName: 'General', key: 'NEW_KEY', value: 'value', originalKey: null }))
     expect(await screen.findByText('Your variables')).toBeInTheDocument()
   })
 
@@ -117,7 +132,7 @@ describe('VariablesPage', () => {
     await user.click(screen.getByRole('button', { name: 'Save variable' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Unable to save.')
     expect(screen.getByRole('dialog', { name: /edit variable/i })).toBeInTheDocument()
-    expect(variableApi.save).toHaveBeenCalledWith({ key: 'API_TOKEN', value: 'updated-secret', originalKey: 'API_TOKEN' })
+    expect(variableApi.save).toHaveBeenCalledWith({ profileName: 'General', key: 'API_TOKEN', value: 'updated-secret', originalKey: 'API_TOKEN' })
 
     vi.mocked(variableApi.save).mockResolvedValueOnce(undefined)
     await user.click(screen.getByRole('button', { name: 'Save variable' }))
@@ -137,7 +152,7 @@ describe('VariablesPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Delete API_TOKEN' }))
     await user.click(screen.getByRole('button', { name: 'Delete variable' }))
-    await waitFor(() => expect(variableApi.remove).toHaveBeenCalledWith('API_TOKEN'))
+    await waitFor(() => expect(variableApi.remove).toHaveBeenCalledWith('General', 'API_TOKEN'))
     expect(await screen.findByText('Your variables')).toBeInTheDocument()
   })
 
@@ -147,17 +162,17 @@ describe('VariablesPage', () => {
     const user = userEvent.setup()
     await screen.findByText('API_TOKEN')
 
-    await user.click(screen.getByRole('button', { name: 'Clear custom env' }))
+    await clickProfileAction(user, 'Clear profile variables')
     const dialog = screen.getByRole('alertdialog', { name: 'Clear custom environment?' })
     expect(within(dialog).getByText(/all 2 saved variables from this app/i)).toBeInTheDocument()
     expect(within(dialog).getByText(/Shell integration settings and startup files are not changed/i)).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
     expect(variableApi.clear).not.toHaveBeenCalled()
 
-    await user.click(screen.getByRole('button', { name: 'Clear custom env' }))
+    await clickProfileAction(user, 'Clear profile variables')
     const confirmation = screen.getByRole('alertdialog', { name: 'Clear custom environment?' })
     await user.click(within(confirmation).getByRole('button', { name: 'Clear custom env' }))
-    await waitFor(() => expect(variableApi.clear).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(variableApi.clear).toHaveBeenCalledWith('General'))
     expect(await screen.findByText('A fresh start')).toBeInTheDocument()
     expect(shellIntegrationApi.set).not.toHaveBeenCalled()
   })
@@ -167,7 +182,7 @@ describe('VariablesPage', () => {
     render(<VariablesPage />)
     const user = userEvent.setup()
     await screen.findByText('API_TOKEN')
-    await user.click(screen.getByRole('button', { name: 'Clear custom env' }))
+    await clickProfileAction(user, 'Clear profile variables')
     const dialog = screen.getByRole('alertdialog', { name: 'Clear custom environment?' })
     await user.click(within(dialog).getByRole('button', { name: 'Clear custom env' }))
     expect(await within(dialog).findByRole('alert')).toHaveTextContent('Clear failed')
@@ -192,7 +207,7 @@ describe('VariablesPage', () => {
     render(<VariablesPage />)
     const user = userEvent.setup()
     await screen.findByText('API_TOKEN')
-    await user.click(screen.getByRole('button', { name: 'Import .env' }))
+    await clickProfileAction(user, 'Import .env')
     const dialog = await screen.findByRole('dialog', { name: 'Import preview' })
     expect(dialog).toBeInTheDocument()
     expect(within(dialog).getByText('NEW_KEY')).toBeInTheDocument()
@@ -204,7 +219,7 @@ describe('VariablesPage', () => {
     await user.tab()
     expect(closeButton).toHaveFocus()
     await user.click(screen.getByRole('button', { name: 'Apply import' }))
-    await waitFor(() => expect(variableApi.applyImport).toHaveBeenCalledWith('import-token'))
+    await waitFor(() => expect(variableApi.applyImport).toHaveBeenCalledWith('General', 'import-token'))
     expect(await screen.findByRole('status')).toHaveTextContent('1 added, 1 updated')
   })
 
@@ -215,7 +230,7 @@ describe('VariablesPage', () => {
     render(<VariablesPage />)
     const user = userEvent.setup()
     await screen.findByText('API_TOKEN')
-    await user.click(screen.getByRole('button', { name: 'Import .env' }))
+    await clickProfileAction(user, 'Import .env')
     const applyButton = await screen.findByRole('button', { name: 'Apply import' })
     expect(screen.getByText('Line 4: Expected KEY=value.')).toBeInTheDocument()
     expect(applyButton).toBeDisabled()
@@ -230,7 +245,7 @@ describe('VariablesPage', () => {
     render(<VariablesPage />)
     const user = userEvent.setup()
     await screen.findByText('API_TOKEN')
-    await user.click(screen.getByRole('button', { name: 'Import .env' }))
+    await clickProfileAction(user, 'Import .env')
     expect(await screen.findByText('This file contains no variable changes to apply.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Apply import' })).toBeDisabled()
     await user.click(screen.getByRole('button', { name: 'Close import preview' }))
@@ -299,6 +314,127 @@ describe('VariablesPage', () => {
     expect(await screen.findByRole('button', { name: 'Enable Bash integration' })).toBeInTheDocument()
   })
 
+  it('creates a profile with its metadata and optional starting profile', async () => {
+    const existingProfile = { name: 'Dev', description: 'Development values', color: '#427aa1' }
+    vi.mocked(profileApi.list).mockResolvedValueOnce([existingProfile]).mockResolvedValueOnce([existingProfile, { name: 'Work', description: 'Work environment', color: '#05668d' }])
+    vi.mocked(variableApi.list).mockImplementation(async (profileName) => profileName === 'General' ? [] : savedVariables)
+    render(<VariablesPage />)
+    const user = userEvent.setup()
+    const createButton = screen.getByRole('button', { name: 'Create profile' })
+    const profilePanel = screen.getByRole('region', { name: 'Environment profiles' })
+    expect(createButton.compareDocumentPosition(profilePanel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(within(profilePanel).getByRole('tablist', { name: 'Profiles' })).toBeInTheDocument()
+    await user.click(createButton)
+    const dialog = screen.getByRole('dialog', { name: 'Create profile' })
+    await user.type(within(dialog).getByLabelText('Profile name'), 'Work')
+    await user.type(within(dialog).getByLabelText('Description'), 'Work environment')
+    await user.selectOptions(within(dialog).getByLabelText('Start with variables from'), 'Dev')
+    await user.click(within(dialog).getByRole('button', { name: 'Create profile' }))
+    await waitFor(() => expect(profileApi.create).toHaveBeenCalledWith({ name: 'Work', description: 'Work environment', color: '#05668d', importFrom: 'Dev' }))
+    expect(await screen.findByRole('tab', { name: /Work/ })).toHaveAttribute('aria-selected', 'true')
+    await waitFor(() => expect(variableApi.list).toHaveBeenCalledWith('Work'))
+  })
+
+  it('applies the profile selected in the profile selector', async () => {
+    const workProfile = { name: 'Work', description: 'Work setup', color: '#679436', active: false }
+    vi.mocked(profileApi.list).mockResolvedValue([workProfile])
+    vi.mocked(variableApi.list).mockImplementation(async (profileName) => profileName === 'General' ? [] : savedVariables)
+    render(<VariablesPage />)
+    const user = userEvent.setup()
+    await user.selectOptions(await screen.findByLabelText('Profile to apply'), 'Work')
+    expect(profileApi.setActive).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Apply profile' }))
+    await waitFor(() => expect(profileApi.setActive).toHaveBeenCalledWith('Work'))
+    expect(await screen.findByRole('tab', { name: /Work/ })).toHaveAttribute('aria-selected', 'true')
+    expect(await screen.findByText('Work profile applied for future shell sessions.')).toBeInTheDocument()
+  })
+
+  it('shows inherited values, allows profile overrides, and prevents deleting inherited-only keys', async () => {
+    const workProfile = { name: 'Work', description: 'Work setup', color: '#679436' }
+    const inherited: Variable = { key: 'SHARED_KEY', value: 'shared-value', inherited: true }
+    vi.mocked(profileApi.list).mockResolvedValue([workProfile])
+    vi.mocked(variableApi.list).mockImplementation(async (profileName) => profileName === 'General' ? [inherited] : [inherited])
+    render(<VariablesPage />)
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('tab', { name: 'Work' }))
+    expect(profileApi.setActive).not.toHaveBeenCalled()
+    expect(await screen.findByText('SHARED_KEY')).toBeInTheDocument()
+    expect(screen.getByText('inherited')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Delete SHARED_KEY' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Edit SHARED_KEY' }))
+    expect(screen.getByText(/Saving creates a profile-local override/)).toBeInTheDocument()
+    await user.clear(screen.getByLabelText('Value'))
+    await user.type(screen.getByLabelText('Value'), 'work-value')
+    await user.click(screen.getByRole('button', { name: 'Save variable' }))
+    await waitFor(() => expect(variableApi.save).toHaveBeenCalledWith({ profileName: 'Work', key: 'SHARED_KEY', value: 'work-value', originalKey: 'SHARED_KEY' }))
+  })
+
+  it('prevents deleting General and confirms deletion of a custom profile', async () => {
+    const workProfile = { name: 'Work', description: 'Work setup', color: '#679436', active: true }
+    vi.mocked(profileApi.list).mockResolvedValue([workProfile])
+    vi.mocked(variableApi.list).mockResolvedValue(savedVariables)
+    render(<VariablesPage />)
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('tab', { name: /General/ }))
+    await user.click(screen.getByText('Profile actions'))
+    expect(screen.queryByRole('button', { name: 'Delete profile' })).not.toBeInTheDocument()
+    await user.click(screen.getByText('Profile actions'))
+    await user.click(screen.getByRole('tab', { name: /Work/ }))
+    await user.click(screen.getByText('Profile actions'))
+    await user.click(screen.getByRole('button', { name: 'Delete profile' }))
+    const dialog = screen.getByRole('alertdialog', { name: 'Delete Work profile?' })
+    expect(within(dialog).getByText(/2 profile-local variables/)).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    await user.click(screen.getByRole('tab', { name: /Work/ }))
+    expect(profileApi.remove).not.toHaveBeenCalled()
+    expect(screen.getByRole('tab', { name: /Work/ })).toBeInTheDocument()
+
+    await user.click(screen.getByText('Profile actions'))
+    await user.click(screen.getByRole('button', { name: 'Delete profile' }))
+    const confirmation = screen.getByRole('alertdialog', { name: 'Delete Work profile?' })
+    await user.click(within(confirmation).getByRole('button', { name: 'Delete profile' }))
+    await waitFor(() => expect(profileApi.remove).toHaveBeenCalledWith('Work'))
+    expect(screen.queryByRole('tab', { name: /Work/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /General/ })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByLabelText('Profile to apply')).toHaveValue('General')
+  })
+
+  it('keeps profile deletion confirmation open after a delete failure', async () => {
+    const workProfile = { name: 'Work', description: '', color: '#679436', active: true }
+    vi.mocked(profileApi.list).mockResolvedValue([workProfile])
+    vi.mocked(profileApi.remove).mockRejectedValueOnce(new Error('Profile deletion failed'))
+    vi.mocked(variableApi.list).mockResolvedValue(savedVariables)
+    render(<VariablesPage />)
+    const user = userEvent.setup()
+    await user.click(screen.getByText('Profile actions'))
+    await user.click(screen.getByRole('button', { name: 'Delete profile' }))
+    const dialog = screen.getByRole('alertdialog', { name: 'Delete Work profile?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Delete profile' }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Profile deletion failed')
+    expect(dialog).toBeInTheDocument()
+  })
+
+  it('scopes .env import and clear actions to the selected profile', async () => {
+    const workProfile = { name: 'Work', description: '', color: '#a5be00' }
+    vi.mocked(profileApi.list).mockResolvedValue([workProfile])
+    vi.mocked(variableApi.list).mockImplementation(async (profileName) => profileName === 'General' ? [] : [{ key: 'LOCAL_KEY', value: 'local', inherited: false }])
+    vi.mocked(variableApi.previewImport).mockResolvedValue(goodPreview)
+    render(<VariablesPage />)
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('tab', { name: 'Work' }))
+    await screen.findByText('LOCAL_KEY')
+    await clickProfileAction(user, 'Import .env')
+    expect(await screen.findByRole('dialog', { name: 'Import preview' })).toBeInTheDocument()
+    expect(variableApi.previewImport).toHaveBeenCalledWith('Work')
+    await user.click(screen.getByRole('button', { name: 'Close import preview' }))
+    await clickProfileAction(user, 'Clear profile variables')
+    const dialog = screen.getByRole('alertdialog', { name: 'Clear Work variables?' })
+    expect(within(dialog).getByText(/Inherited General values remain available/)).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Clear profile variables' }))
+    await waitFor(() => expect(variableApi.clear).toHaveBeenCalledWith('Work'))
+  })
+
   it('shows recoverable load and file-picker errors and supports retry', async () => {
     vi.mocked(variableApi.list).mockRejectedValueOnce('Unable to access the desktop keyring.')
     vi.mocked(variableApi.previewImport).mockRejectedValueOnce(new Error('Picker unavailable'))
@@ -308,7 +444,7 @@ describe('VariablesPage', () => {
     vi.mocked(variableApi.list).mockResolvedValueOnce(savedVariables)
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByText('API_TOKEN')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Import .env' }))
+    await clickProfileAction(user, 'Import .env')
     expect(await screen.findByRole('alert')).toHaveTextContent('Picker unavailable')
     await user.click(screen.getByRole('button', { name: 'Dismiss error' }))
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()

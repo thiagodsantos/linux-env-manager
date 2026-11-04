@@ -1,4 +1,7 @@
-use crate::models::{ImportResult, InvalidImportLine, ParsedEnv, SaveVariableInput, Variables};
+use crate::models::{
+    CreateProfileInput, ImportResult, InvalidImportLine, ParsedEnv, ProfileData, Profiles,
+    SaveVariableInput, Variables,
+};
 
 pub fn valid_key(key: &str) -> bool {
     let mut characters = key.chars();
@@ -137,6 +140,104 @@ pub(crate) fn apply_save(
 
     variables.insert(input.key, input.value);
     Ok(())
+}
+
+pub(crate) fn validate_profile_name(name: &str) -> Result<(), String> {
+    let trimmed = name.trim();
+    if trimmed.is_empty() || trimmed.len() > 48 || trimmed.chars().any(char::is_control) {
+        return Err("Profile names must contain 1 to 48 printable characters.".to_string());
+    }
+    if trimmed.eq_ignore_ascii_case("General") {
+        return Err("General is a reserved profile name.".to_string());
+    }
+    Ok(())
+}
+
+pub(crate) fn create_profile(
+    profiles: &mut Profiles,
+    input: CreateProfileInput,
+) -> Result<(), String> {
+    let name = input.name.trim();
+    validate_profile_name(name)?;
+    if profiles
+        .keys()
+        .any(|existing| existing.eq_ignore_ascii_case(name))
+    {
+        return Err("A profile with this name already exists.".to_string());
+    }
+    if !valid_color(&input.color) {
+        return Err("Choose a valid six-digit profile color.".to_string());
+    }
+    if input.description.trim().len() > 240 {
+        return Err("Profile descriptions must be 240 characters or fewer.".to_string());
+    }
+    profiles.insert(
+        name.to_string(),
+        ProfileData {
+            description: input.description.trim().to_string(),
+            color: input.color,
+            variables: Variables::new(),
+        },
+    );
+    Ok(())
+}
+
+pub(crate) fn valid_color(color: &str) -> bool {
+    color.as_bytes().len() == 7
+        && color.starts_with('#')
+        && color.as_bytes()[1..].iter().all(u8::is_ascii_hexdigit)
+}
+
+pub(crate) fn effective_variables(profiles: &Profiles, name: &str) -> Result<Variables, String> {
+    let general = profiles
+        .get("General")
+        .ok_or_else(|| "The General profile is missing from the saved store.".to_string())?;
+    let selected = profiles.get(name).ok_or_else(|| {
+        "The selected profile no longer exists. Reload and try again.".to_string()
+    })?;
+    let mut effective = general.variables.clone();
+    if name != "General" {
+        effective.extend(selected.variables.clone());
+    }
+    Ok(effective)
+}
+
+pub(crate) fn save_profile_variable(
+    profiles: &mut Profiles,
+    input: SaveVariableInput,
+) -> Result<(), String> {
+    let profile_name = input.profile_name.clone();
+    if !profiles.contains_key(&profile_name) {
+        return Err("The selected profile no longer exists. Reload and try again.".to_string());
+    }
+    if profile_name == "General" {
+        let general = profiles.get_mut(&profile_name).ok_or_else(|| {
+            "The selected profile no longer exists. Reload and try again.".to_string()
+        })?;
+        return apply_save(&mut general.variables, input);
+    }
+
+    let source_key = input.original_key.as_deref().unwrap_or(&input.key);
+    let inherited = profiles
+        .get("General")
+        .and_then(|general| general.variables.get(source_key))
+        .is_some();
+    let profile = profiles.get_mut(&profile_name).ok_or_else(|| {
+        "The selected profile no longer exists. Reload and try again.".to_string()
+    })?;
+    if inherited {
+        validate_key(&input.key)?;
+        validate_value(&input.value)?;
+        if input.key != source_key && profile.variables.contains_key(&input.key) {
+            return Err("A variable with this key already exists.".to_string());
+        }
+        if input.key != source_key {
+            profile.variables.remove(source_key);
+        }
+        profile.variables.insert(input.key, input.value);
+        return Ok(());
+    }
+    apply_save(&mut profile.variables, input)
 }
 
 pub(crate) fn apply_delete(variables: &mut Variables, key: &str) -> Result<(), String> {

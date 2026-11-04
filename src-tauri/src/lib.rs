@@ -24,9 +24,17 @@ pub fn run() {
             std::process::exit(2);
         }
         match storage::load_store(std::path::Path::new(&path)) {
-            Ok(variables) => {
-                for (key, value) in variables {
-                    println!("export {key}={}", shell::shell_quote(&value));
+            Ok(store) => {
+                match domain::effective_variables(&store.profiles, &store.active_profile) {
+                    Ok(variables) => {
+                        for (key, value) in variables {
+                            println!("export {key}={}", shell::shell_quote(&value));
+                        }
+                    }
+                    Err(error) => {
+                        eprintln!("{error}");
+                        std::process::exit(1);
+                    }
                 }
             }
             Err(error) => {
@@ -42,15 +50,18 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::{apply_delete, apply_save, merge_import, parse_env};
-    use crate::models::PendingImport;
+    use crate::domain::{
+        apply_delete, apply_save, create_profile, effective_variables, merge_import, parse_env,
+        save_profile_variable, valid_color,
+    };
+    use crate::models::{CreateProfileInput, PendingImport, ProfileData, Profiles, StoreFile};
     use crate::shell::{
         managed_block_range, managed_shell_block, replace_managed_block, shell_quote,
         SHELL_BLOCK_END, SHELL_BLOCK_START,
     };
     use crate::storage::{
         atomic_write_using, clear_variables_with_test_key, commit_import_at_with_test_key,
-        load_store_with_test_key, save_store_with_test_key, STORE_FILE,
+        load_store_with_test_key, remove_profile, save_store_with_test_key, STORE_FILE,
     };
     use std::collections::BTreeMap;
     use std::fs;
@@ -77,6 +88,7 @@ mod tests {
         let saved = apply_save(
             &mut variables,
             SaveVariableInput {
+                profile_name: "General".to_string(),
                 key: "TOKEN".to_string(),
                 value: "before\0after".to_string(),
                 original_key: None,
@@ -208,6 +220,7 @@ mod tests {
         assert!(apply_save(
             &mut variables,
             SaveVariableInput {
+                profile_name: "General".to_string(),
                 key: "SECOND".to_string(),
                 value: "overwrite".to_string(),
                 original_key: None,
@@ -217,6 +230,7 @@ mod tests {
         apply_save(
             &mut variables,
             SaveVariableInput {
+                profile_name: "General".to_string(),
                 key: "FIRST".to_string(),
                 value: "updated".to_string(),
                 original_key: Some("FIRST".to_string()),
@@ -227,6 +241,7 @@ mod tests {
         assert!(apply_save(
             &mut variables,
             SaveVariableInput {
+                profile_name: "General".to_string(),
                 key: "SECOND".to_string(),
                 value: "collision".to_string(),
                 original_key: Some("FIRST".to_string()),
@@ -236,6 +251,7 @@ mod tests {
         apply_save(
             &mut variables,
             SaveVariableInput {
+                profile_name: "General".to_string(),
                 key: "RENAMED".to_string(),
                 value: "renamed".to_string(),
                 original_key: Some("FIRST".to_string()),
@@ -244,6 +260,117 @@ mod tests {
         .unwrap();
         assert!(!variables.contains_key("FIRST"));
         assert_eq!(variables["RENAMED"], "renamed");
+    }
+
+    #[test]
+    fn profile_creation_validates_name_color_and_uniqueness() {
+        let mut profiles = Profiles::from([("General".to_string(), ProfileData::general())]);
+        create_profile(
+            &mut profiles,
+            CreateProfileInput {
+                name: "Development".to_string(),
+                description: "Local development".to_string(),
+                color: "#427AA1".to_string(),
+                import_from: None,
+            },
+        )
+        .unwrap();
+        assert!(profiles.contains_key("Development"));
+        assert!(valid_color("#aBc123"));
+        assert!(!valid_color("red"));
+        assert!(create_profile(
+            &mut profiles,
+            CreateProfileInput {
+                name: "development".to_string(),
+                description: String::new(),
+                color: "#427AA1".to_string(),
+                import_from: None,
+            }
+        )
+        .is_err());
+        assert!(create_profile(
+            &mut profiles,
+            CreateProfileInput {
+                name: "General".to_string(),
+                description: String::new(),
+                color: "#427AA1".to_string(),
+                import_from: None,
+            }
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn deleting_a_custom_profile_removes_its_variables_and_falls_back_to_general() {
+        let mut store = StoreFile {
+            version: crate::storage::STORE_VERSION,
+            profiles: Profiles::from([
+                ("General".to_string(), ProfileData::general()),
+                (
+                    "Work".to_string(),
+                    ProfileData {
+                        description: "Work profile".to_string(),
+                        color: "#427AA1".to_string(),
+                        variables: BTreeMap::from([("WORK_ONLY".to_string(), "value".to_string())]),
+                    },
+                ),
+            ]),
+            active_profile: "Work".to_string(),
+        };
+
+        assert!(remove_profile(&mut store, "General").is_err());
+        remove_profile(&mut store, "Work").unwrap();
+
+        assert!(!store.profiles.contains_key("Work"));
+        assert_eq!(store.active_profile, "General");
+        assert!(remove_profile(&mut store, "Work").is_err());
+    }
+
+    #[test]
+    fn general_variables_are_inherited_and_custom_profiles_can_override_them() {
+        let mut profiles = Profiles::from([
+            (
+                "General".to_string(),
+                ProfileData {
+                    description: "Shared".to_string(),
+                    color: "#05668D".to_string(),
+                    variables: BTreeMap::from([
+                        ("SHARED".to_string(), "common".to_string()),
+                        ("OVERRIDE".to_string(), "general".to_string()),
+                    ]),
+                },
+            ),
+            (
+                "Development".to_string(),
+                ProfileData {
+                    description: "Dev".to_string(),
+                    color: "#427AA1".to_string(),
+                    variables: BTreeMap::from([("OVERRIDE".to_string(), "dev".to_string())]),
+                },
+            ),
+        ]);
+        let effective = effective_variables(&profiles, "Development").unwrap();
+        assert_eq!(effective["SHARED"], "common");
+        assert_eq!(effective["OVERRIDE"], "dev");
+
+        save_profile_variable(
+            &mut profiles,
+            SaveVariableInput {
+                profile_name: "Development".to_string(),
+                key: "SHARED".to_string(),
+                value: "dev-specific".to_string(),
+                original_key: Some("SHARED".to_string()),
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            effective_variables(&profiles, "Development").unwrap()["SHARED"],
+            "dev-specific"
+        );
+        assert_eq!(
+            effective_variables(&profiles, "General").unwrap()["SHARED"],
+            "common"
+        );
     }
 
     #[test]
@@ -293,6 +420,7 @@ mod tests {
         save_store_with_test_key(&path, &original, &TEST_ENCRYPTION_KEY).unwrap();
         let parsed = parse_env("EXISTING=new\nNEW=value\n");
         let batch = PendingImport {
+            profile_name: "General".to_string(),
             variables: parsed.variables,
             invalid_lines: parsed.invalid_lines,
         };
@@ -379,6 +507,7 @@ mod tests {
         save_store_with_test_key(&path, &original, &TEST_ENCRYPTION_KEY).unwrap();
         let parsed = parse_env("NEW=value\nmalformed\n");
         let batch = PendingImport {
+            profile_name: "General".to_string(),
             variables: parsed.variables,
             invalid_lines: parsed.invalid_lines,
         };

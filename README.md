@@ -1,6 +1,6 @@
 # Linux Environment Manager
 
-A small Tauri v2 desktop app for managing a **user-scoped, app-owned** collection of environment variables. Add, edit, delete (with confirmation), and import variables from a `.env` file.
+A small Tauri v2 desktop app for managing **user-scoped, app-owned environment profiles**. Add, edit, delete (with confirmation), and import variables from a `.env` file.
 
 > **Important:** Linux environment variables belong to processes. Saving updates this app's user-scoped store; it does not change this running app, existing terminals, or other processes. Bash/Zsh startup integration is available separately and is always opt-in. The app never edits `/etc/environment` or system-wide configuration.
 
@@ -68,10 +68,12 @@ The AppImage requires a compatible Linux system with the WebKitGTK 4.1 runtime i
 
 ## Usage
 
-- The list shows saved variable keys and masks values until you choose to reveal them.
-- Add and edit validate keys against `^[A-Za-z_][A-Za-z0-9_]*$`. The add form rejects duplicate keys; edit can rename a key if the replacement is unique.
-- Delete always asks for confirmation.
-- Import opens a native file picker, previews added/updated keys and invalid lines, then applies all valid assignments in one store replacement. A file with any invalid line cannot be applied; fix the file and preview it again.
+- The **General** profile is shared by every profile. Its variables are inherited unless a profile defines a local override.
+- Create profiles with a description, color, and optional starting copy of another profile's effective variables. Profiles appear as colored tabs.
+- Add and edit validate keys against `^[A-Za-z_][A-Za-z0-9_]*$`. The add form rejects duplicates; editing an inherited variable creates a profile-local override. Inherited-only values cannot be deleted from a custom profile.
+- Profile actions groups `.env` import, clearing the selected profile's own variables, and deleting a custom profile. General cannot be deleted. Deleting a profile requires confirmation and removes its profile-local variables; if it was active, General becomes active.
+- Deleting a variable always asks for confirmation. Clearing a custom profile preserves inherited General values.
+- Import opens a native file picker, previews added/updated keys and invalid lines, then applies all valid assignments to the selected profile in one store replacement. A file with any invalid line cannot be applied; fix the file and preview it again.
 
 ### `.env` import syntax
 
@@ -89,13 +91,13 @@ The preview reports keys only, never their values. At apply time, incoming keys 
 
 ## Persistence and privacy
 
-The canonical store is `variables.json` in Tauri's per-user application configuration directory (typically `$XDG_CONFIG_HOME/dev.linuxenvmanager.app/variables.json`, or `~/.config/dev.linuxenvmanager.app/variables.json`). Version 2 stores the variables as AES-256-GCM authenticated ciphertext; the random encryption key is kept in the current user's Secret Service-compatible desktop keyring, not alongside the JSON file. Unlock/configure the keyring before using the app. If an older version-1 plaintext store exists, the app encrypts it on its first successful load. If the keyring entry is removed, the encrypted store cannot be recovered from the JSON file alone; restore the keyring entry or a matching backup. Writes use a temporary file followed by atomic rename, and Unix files/directories are restricted to the current user where supported. Encryption protects the file and ordinary backups at rest, but not a compromised user account, a running app, or values after they are revealed or exported.
+The canonical store is `variables.json` in Tauri's per-user application configuration directory (typically `$XDG_CONFIG_HOME/dev.linuxenvmanager.app/variables.json`, or `~/.config/dev.linuxenvmanager.app/variables.json`). Version 2 stores profile metadata and variables as AES-256-GCM authenticated ciphertext; the random encryption key is kept in the current user's Secret Service-compatible desktop keyring, not alongside the JSON file. Unlock/configure the keyring before using the app. Older version-1 single-environment data is migrated into General and encrypted on its first successful load. If the keyring entry is removed, the encrypted store cannot be recovered from the JSON file alone; restore the keyring entry or a matching backup. Writes use a temporary file followed by atomic rename, and Unix files/directories are restricted to the current user where supported. Encryption protects the file and ordinary backups at rest, but not a compromised user account, a running app, or values after they are revealed or exported.
 
 ### Optional Bash/Zsh integration
 
 The **Shell integration** section in the app can be enabled separately for Bash (`~/.bashrc`) and/or Zsh (`~/.zshrc`). Enabling adds only a clearly marked manager-owned block to that user's selected startup file; disabling removes only that block and preserves the rest of the file. The app does not write `/etc/environment` or any system shell configuration.
 
-On each new interactive Bash or Zsh session, the managed block invokes the app executable in export mode. The app decrypts the store through the desktop keyring and returns validated, shell-quoted `export` assignments; plaintext values are not written into the startup file. Imported `.env` text is never sourced or evaluated. Add/edit/delete/import changes are therefore available to the next shell session. Exported values are inherited by commands started from that shell. Existing shells and other running processes are unchanged; open a new terminal or manually source the corresponding RC file (for example, `source ~/.bashrc`). Shell integration is opt-in and limited to Bash and Zsh; other shells are not currently supported.
+On each new interactive Bash or Zsh session, the managed block invokes the app executable in export mode. The app decrypts the store through the desktop keyring and returns validated, shell-quoted `export` assignments for the currently selected profile (General values plus that profile's local overrides); plaintext values are not written into the startup file. Selecting a profile in the app changes which profile is exported by future shells. Imported `.env` text is never sourced or evaluated. Add/edit/delete/import changes are therefore available to the next shell session. Exported values are inherited by commands started from that shell. Existing shells and other running processes are unchanged; open a new terminal or manually source the corresponding RC file (for example, `source ~/.bashrc`). Shell integration is opt-in and limited to Bash and Zsh; other shells are not currently supported.
 
 ## Quality checks
 

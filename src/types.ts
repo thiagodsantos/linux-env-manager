@@ -1,9 +1,26 @@
 export interface Variable {
   key: string
   value: string
+  /** True when this effective value is inherited and has no profile-local override. */
+  inherited: boolean
+}
+
+export interface Profile {
+  name: string
+  description: string
+  color: string
+  active?: boolean
+}
+
+export interface CreateProfileInput {
+  name: string
+  description: string
+  color: string
+  importFrom: string | null
 }
 
 export interface SaveVariableInput {
+  profileName: string
   key: string
   value: string
   originalKey: string | null

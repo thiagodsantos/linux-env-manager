@@ -4,6 +4,7 @@ import { VariableRow } from '@/components/molecules/VariableRow'
 import type { Variable } from '@/types'
 
 interface VariableCollectionProps {
+  profileName: string
   variables: Variable[]
   filteredVariables: Variable[]
   loading: boolean
@@ -17,6 +18,7 @@ interface VariableCollectionProps {
 }
 
 export function VariableCollection({
+  profileName,
   variables,
   filteredVariables,
   loading,
@@ -58,7 +60,7 @@ export function VariableCollection({
       ) : filteredVariables.length === 0 ? (
         <p className="px-6 py-12 text-center text-sm text-muted">No keys match “{search}”.</p>
       ) : (
-        <div className="max-h-96 overflow-y-auto overscroll-contain">{filteredVariables.map((variable) => <VariableRow key={variable.key} variable={variable} onEdit={onEdit} onDelete={onDelete} />)}</div>
+        <div className="max-h-96 overflow-y-auto overscroll-contain">{filteredVariables.map((variable) => <VariableRow key={variable.key} variable={variable} profileName={profileName} onEdit={onEdit} onDelete={onDelete} />)}</div>
       )}
     </>
   )

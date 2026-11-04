@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
-import { ArrowDownToLine, ArrowUpFromLine, Check, CircleAlert, FileText, Plus, Shield, Sparkles, Terminal, Trash2, X } from 'lucide-react'
-import { shellIntegrationApi, variableApi } from '@/api'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { ArrowDownToLine, ArrowUpFromLine, Check, ChevronDown, CircleAlert, FileText, Plus, Shield, Sparkles, Terminal, Trash2, X } from 'lucide-react'
+import { profileApi, shellIntegrationApi, variableApi } from '@/api'
 import { Button } from '@/components/atoms/Button'
 import { Modal } from '@/components/atoms/Modal'
 import { VariableCollection } from '@/components/organisms/VariableCollection'
 import { WorkspaceLayout } from '@/components/templates/WorkspaceLayout'
-import type { ImportPreview, ImportResult, ShellIntegrationStatus, Variable } from '@/types'
+import type { CreateProfileInput, ImportPreview, ImportResult, Profile, ShellIntegrationStatus, Variable } from '@/types'
 
+const GENERAL_PROFILE = 'General'
 const KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/
 const SHELL_INTEGRATIONS: { shell: ShellIntegrationStatus['shell']; label: string; startupFile: ShellIntegrationStatus['startupFile'] }[] = [
   { shell: 'bash', label: 'Bash', startupFile: '~/.bashrc' },
@@ -23,12 +24,59 @@ function messageFromError(error: unknown, fallback: string): string {
   return fallback
 }
 
+function ProfileEditor({ profiles, onClose, onCreated }: { profiles: Profile[]; onClose: () => void; onCreated: (profile: Profile) => Promise<void> }) {
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [color, setColor] = useState('#05668d')
+  const [importFrom, setImportFrom] = useState('')
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const normalizedName = name.trim()
+    setError('')
+    if (!normalizedName) { setError('Enter a profile name.'); return }
+    if (normalizedName.toLowerCase() === GENERAL_PROFILE.toLowerCase()) { setError('General is reserved for the shared profile.'); return }
+    if (profiles.some((profile) => profile.name.toLowerCase() === normalizedName.toLowerCase())) { setError('A profile with this name already exists.'); return }
+    setSaving(true)
+    try {
+      const input: CreateProfileInput = { name: normalizedName, description: description.trim(), color, importFrom: importFrom || null }
+      await profileApi.create(input)
+      await onCreated({ name: input.name, description: input.description, color: input.color })
+    } catch (reason) {
+      setError(messageFromError(reason, 'Unable to create this profile.'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal labelledBy="profile-editor-title" onClose={onClose}>
+      <div className="flex items-start justify-between gap-4">
+        <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-danger">A focused workspace</p><h2 id="profile-editor-title" className="mt-1 text-xl font-bold">Create profile</h2></div>
+        <Button type="button" variant="quiet" className="size-9 min-h-9 px-0" aria-label="Close profile form" onClick={onClose}><X size={18} /></Button>
+      </div>
+      <form className="mt-6 space-y-4" onSubmit={(event) => void submit(event)}>
+        <div><label className="field-label" htmlFor="profile-name">Profile name</label><input autoFocus id="profile-name" className="field-input" value={name} onChange={(event) => setName(event.target.value)} aria-describedby={error ? 'profile-error' : undefined} /></div>
+        <div><label className="field-label" htmlFor="profile-description">Description</label><textarea id="profile-description" rows={2} className="field-input resize-y" value={description} onChange={(event) => setDescription(event.target.value)} /></div>
+        <div><label className="field-label" htmlFor="profile-color">Profile color</label><input id="profile-color" type="color" className="field-input h-12 cursor-pointer p-1" value={color} onChange={(event) => setColor(event.target.value)} /></div>
+        <div><label className="field-label" htmlFor="profile-import-from">Start with variables from</label><select id="profile-import-from" className="field-input" value={importFrom} onChange={(event) => setImportFrom(event.target.value)}><option value="">No profile (empty)</option>{[ { name: GENERAL_PROFILE }, ...profiles.filter((profile) => profile.name !== GENERAL_PROFILE) ].map((profile) => <option key={profile.name} value={profile.name}>{profile.name}</option>)}</select><p className="field-hint">Imported values become the new profile's starting variables.</p></div>
+        {error && <p id="profile-error" role="alert" className="rounded-xl bg-danger/10 px-3 py-2.5 text-sm font-medium text-danger">{error}</p>}
+        <div className="flex justify-end gap-2 border-t border-line pt-4"><Button type="button" onClick={onClose}>Cancel</Button><Button type="submit" variant="primary" disabled={saving}>{saving ? 'Creating…' : 'Create profile'}</Button></div>
+      </form>
+    </Modal>
+  )
+}
+
 function VariableEditor({
+  profileName,
   variable,
   variables,
   onClose,
   onSaved,
 }: {
+  profileName: string
   variable: Variable | null
   variables: Variable[]
   onClose: () => void
@@ -54,7 +102,7 @@ function VariableEditor({
     }
     setSaving(true)
     try {
-      await variableApi.save({ key, value, originalKey: variable?.key ?? null })
+      await variableApi.save({ profileName, key, value, originalKey: variable?.key ?? null })
       onClose()
       await onSaved()
     } catch (error) {
@@ -82,7 +130,7 @@ function VariableEditor({
           <div>
             <label className="field-label" htmlFor="variable-value">Value</label>
             <textarea id="variable-value" rows={3} className="field-input resize-y font-mono" value={value} onChange={(event) => setValue(event.target.value)} />
-            <p className="field-hint">Stored privately in this app's user configuration.</p>
+            <p className="field-hint">{variable?.inherited ? 'Saving creates a profile-local override; the shared General value remains unchanged.' : 'Stored privately in this app\'s user configuration.'}</p>
           </div>
           {formError && <p role="alert" className="rounded-xl bg-danger/10 px-3 py-2.5 text-sm font-medium text-danger">{formError}</p>}
           <div className="flex justify-end gap-2 border-t border-line pt-4">
@@ -134,10 +182,12 @@ function DeleteConfirmation({
 
 function ClearVariablesConfirmation({
   variableCount,
+  profileName,
   onCancel,
   onConfirm,
 }: {
   variableCount: number
+  profileName: string
   onCancel: () => void
   onConfirm: () => Promise<void>
 }) {
@@ -158,12 +208,51 @@ function ClearVariablesConfirmation({
   return (
     <Modal role="alertdialog" labelledBy="clear-variables-title" onClose={onCancel} className="max-w-md">
       <div className="grid size-11 place-items-center rounded-2xl bg-danger/10 text-danger"><CircleAlert aria-hidden="true" size={22} /></div>
-      <h2 id="clear-variables-title" className="mt-4 text-xl font-bold">Clear custom environment?</h2>
-      <p className="mt-2 text-sm leading-6 text-muted">This permanently removes all {variableCount} saved {variableCount === 1 ? 'variable' : 'variables'} from this app. Shell integration settings and startup files are not changed.</p>
+      <h2 id="clear-variables-title" className="mt-4 text-xl font-bold">{profileName === GENERAL_PROFILE ? 'Clear custom environment?' : `Clear ${profileName} variables?`}</h2>
+      <p className="mt-2 text-sm leading-6 text-muted">{profileName === GENERAL_PROFILE ? <>This permanently removes all {variableCount} saved {variableCount === 1 ? 'variable' : 'variables'} from this app. Shell integration settings and startup files are not changed.</> : <>This removes all {variableCount} profile-local {variableCount === 1 ? 'variable' : 'variables'} from {profileName}. Inherited General values remain available.</>}</p>
       {error && <p role="alert" className="mt-4 rounded-xl bg-danger/10 px-3 py-2.5 text-sm font-medium text-danger">{error}</p>}
       <div className="mt-6 flex justify-end gap-2">
         <Button type="button" onClick={onCancel} disabled={clearing}>Cancel</Button>
-        <Button type="button" variant="danger" disabled={clearing} icon={<Trash2 aria-hidden="true" size={15} />} onClick={() => void confirm()}>{clearing ? 'Clearing…' : 'Clear custom env'}</Button>
+        <Button type="button" variant="danger" disabled={clearing} icon={<Trash2 aria-hidden="true" size={15} />} onClick={() => void confirm()}>{clearing ? 'Clearing…' : profileName === GENERAL_PROFILE ? 'Clear custom env' : 'Clear profile variables'}</Button>
+      </div>
+    </Modal>
+  )
+}
+
+function DeleteProfileConfirmation({
+  profileName,
+  variableCount,
+  onCancel,
+  onConfirm,
+}: {
+  profileName: string
+  variableCount: number
+  onCancel: () => void
+  onConfirm: () => Promise<void>
+}) {
+  const [error, setError] = useState('')
+  const [deleting, setDeleting] = useState(false)
+
+  async function confirm() {
+    setDeleting(true)
+    setError('')
+    try {
+      await onConfirm()
+    } catch (reason) {
+      setError(messageFromError(reason, 'Unable to delete this profile.'))
+      setDeleting(false)
+    }
+  }
+
+  return (
+    <Modal role="alertdialog" labelledBy="delete-profile-title" onClose={onCancel} className="max-w-md">
+      <div className="grid size-11 place-items-center rounded-2xl bg-danger/10 text-danger"><CircleAlert aria-hidden="true" size={22} /></div>
+      <h2 id="delete-profile-title" className="mt-4 text-xl font-bold">Delete {profileName} profile?</h2>
+      <p className="mt-2 text-sm leading-6 text-muted">This permanently deletes the {profileName} profile and its {variableCount} profile-local {variableCount === 1 ? 'variable' : 'variables'}. Shared General variables are not deleted. If this profile is active, General will become active.</p>
+      {error && <p role="alert" className="mt-4 rounded-xl bg-danger/10 px-3 py-2.5 text-sm font-medium text-danger">{error}</p>}
+      <div className="mt-6 flex justify-end gap-2">
+        <Button type="button" onClick={onCancel} disabled={deleting}>Cancel</Button>
+        <Button type="button" variant="danger" disabled={deleting} icon={<Trash2 aria-hidden="true" size={15} />} onClick={() => void confirm()}>{deleting ? 'Deleting…' : 'Delete profile'}</Button>
       </div>
     </Modal>
   )
@@ -171,10 +260,12 @@ function ClearVariablesConfirmation({
 
 function ImportDialog({
   preview,
+  profileName,
   onClose,
   onApply,
 }: {
   preview: ImportPreview
+  profileName: string
   onClose: () => void
   onApply: (result: ImportResult) => void
 }) {
@@ -191,7 +282,7 @@ function ImportDialog({
     setApplying(true)
     setError('')
     try {
-      onApply(await variableApi.applyImport(preview.token))
+      onApply(await variableApi.applyImport(profileName, preview.token))
     } catch (reason) {
       setError(messageFromError(reason, 'Unable to apply this import.'))
       setApplying(false)
@@ -236,6 +327,14 @@ function ImportDialog({
 }
 
 export default function VariablesPage() {
+  const [profiles, setProfiles] = useState<Profile[]>([])
+  const [profilesLoading, setProfilesLoading] = useState(true)
+  const [profilesError, setProfilesError] = useState('')
+  const [selectedProfile, setSelectedProfile] = useState(GENERAL_PROFILE)
+  const [activeProfile, setActiveProfile] = useState(GENERAL_PROFILE)
+  const [profileToApply, setProfileToApply] = useState(GENERAL_PROFILE)
+  const [applyingProfile, setApplyingProfile] = useState(false)
+  const [creatingProfile, setCreatingProfile] = useState(false)
   const [variables, setVariables] = useState<Variable[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -243,6 +342,8 @@ export default function VariablesPage() {
   const [editor, setEditor] = useState<Variable | null | undefined>(undefined)
   const [deleting, setDeleting] = useState<Variable | null>(null)
   const [confirmingClear, setConfirmingClear] = useState(false)
+  const [profileToDelete, setProfileToDelete] = useState<string | null>(null)
+  const profileActionsRef = useRef<HTMLDetailsElement>(null)
   const [preview, setPreview] = useState<ImportPreview | null>(null)
   const [importing, setImporting] = useState(false)
   const [actionError, setActionError] = useState('')
@@ -253,6 +354,24 @@ export default function VariablesPage() {
   const [shellIntegrationActionError, setShellIntegrationActionError] = useState('')
   const [shellIntegrationNotice, setShellIntegrationNotice] = useState('')
   const [shellIntegrationActionShell, setShellIntegrationActionShell] = useState<ShellIntegrationStatus['shell'] | null>(null)
+
+  async function refreshProfiles() {
+    setProfilesLoading(true)
+    setProfilesError('')
+    try {
+      const loadedProfiles = await profileApi.list()
+      setProfiles(loadedProfiles)
+      const applied = loadedProfiles.find((profile) => profile.active)?.name
+      if (applied) {
+        setActiveProfile(applied)
+        setProfileToApply(applied)
+      }
+    } catch (error) {
+      setProfilesError(messageFromError(error, 'Unable to load profiles.'))
+    } finally {
+      setProfilesLoading(false)
+    }
+  }
 
   const refreshShellIntegrations = useCallback(async () => {
     setShellIntegrationLoading(true)
@@ -270,13 +389,13 @@ export default function VariablesPage() {
     setLoading(true)
     setLoadError('')
     try {
-      setVariables(await variableApi.list())
+      setVariables(await variableApi.list(selectedProfile))
     } catch (error) {
       setLoadError(messageFromError(error, 'Unable to load saved variables.'))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [selectedProfile])
 
   useEffect(() => {
     let cancelled = false
@@ -297,11 +416,30 @@ export default function VariablesPage() {
 
   useEffect(() => {
     let cancelled = false
-    void variableApi.list()
-      .then((loadedVariables) => {
+    void profileApi.list()
+      .then((loadedProfiles) => {
         if (cancelled) return
-        setVariables(loadedVariables)
-        setLoadError('')
+        setProfiles(loadedProfiles)
+        const applied = loadedProfiles.find((profile) => profile.active)?.name ?? GENERAL_PROFILE
+        setActiveProfile(applied)
+        setProfileToApply(applied)
+        setSelectedProfile(applied)
+        setProfilesError('')
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setProfilesError(messageFromError(error, 'Unable to load profiles.'))
+      })
+      .finally(() => {
+        if (!cancelled) setProfilesLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    void variableApi.list(selectedProfile)
+      .then((loadedVariables) => {
+        if (!cancelled) setVariables(loadedVariables)
       })
       .catch((error: unknown) => {
         if (!cancelled) setLoadError(messageFromError(error, 'Unable to load saved variables.'))
@@ -310,7 +448,7 @@ export default function VariablesPage() {
         if (!cancelled) setLoading(false)
       })
     return () => { cancelled = true }
-  }, [])
+  }, [selectedProfile])
 
   async function updateShellIntegration(shell: ShellIntegrationStatus['shell'], enabled: boolean) {
     const label = shell === 'bash' ? 'Bash' : 'Zsh'
@@ -337,7 +475,7 @@ export default function VariablesPage() {
     setActionError('')
     setNotice('')
     try {
-      const result = await variableApi.previewImport()
+      const result = await variableApi.previewImport(selectedProfile)
       if (result) setPreview(result)
     } catch (error) {
       setActionError(messageFromError(error, 'Unable to open an environment file.'))
@@ -348,23 +486,96 @@ export default function VariablesPage() {
 
   async function removeVariable() {
     if (!deleting) return
-    await variableApi.remove(deleting.key)
+    await variableApi.remove(selectedProfile, deleting.key)
     setDeleting(null)
     await refresh()
   }
 
   async function clearSavedVariables() {
-    await variableApi.clear()
+    await variableApi.clear(selectedProfile)
     setConfirmingClear(false)
     setSearch('')
-    setNotice('Custom environment cleared from this app. Shell integration settings and startup files were left unchanged.')
+    setNotice(selectedProfile === GENERAL_PROFILE ? 'Custom environment cleared from this app. Shell integration settings and startup files were left unchanged.' : `${selectedProfile} profile-local variables cleared. Inherited General values remain available.`)
     await refresh()
+  }
+
+  async function deleteProfile(profileName: string) {
+    await profileApi.remove(profileName)
+    const nextActiveProfile = activeProfile === profileName ? GENERAL_PROFILE : activeProfile
+    const nextAppliedProfile = profileToApply === profileName ? nextActiveProfile : profileToApply
+    setProfiles((current) => current.filter((profile) => profile.name !== profileName).map((profile) => ({ ...profile, active: profile.name === nextActiveProfile })))
+    setSelectedProfile(GENERAL_PROFILE)
+    setActiveProfile(nextActiveProfile)
+    setProfileToApply(nextAppliedProfile)
+    setProfileToDelete(null)
+    setSearch('')
+    setLoading(true)
+    setNotice(`${profileName} profile and its profile-local variables were deleted.`)
+  }
+
+  function closeProfileActions() {
+    if (profileActionsRef.current) profileActionsRef.current.open = false
   }
 
   function imported(result: ImportResult) {
     setPreview(null)
     setNotice(`Import complete: ${result.added.length} added, ${result.updated.length} updated.`)
     void refresh()
+  }
+
+  async function createdProfile(profile: Profile) {
+    setCreatingProfile(false)
+    setProfiles((current) => current.some((item) => item.name === profile.name) ? current : [...current, profile])
+    setLoading(true)
+    setLoadError('')
+    setSelectedProfile(profile.name)
+    setActiveProfile(profile.name)
+    setProfileToApply(profile.name)
+    await refreshProfiles()
+  }
+
+  const localVariableCount = selectedProfile === GENERAL_PROFILE ? variables.length : variables.filter((variable) => !variable.inherited).length
+  const visibleProfiles = profiles.filter((profile) => profile.name !== GENERAL_PROFILE)
+  const profileTabNames = [GENERAL_PROFILE, ...visibleProfiles.map((profile) => profile.name)]
+  const selectedTabIndex = Math.max(0, profileTabNames.indexOf(selectedProfile))
+
+  function selectProfile(name: string) {
+    if (name === selectedProfile) return
+    setLoading(true)
+    setLoadError('')
+    setActionError('')
+    setSelectedProfile(name)
+    setSearch('')
+    setNotice('')
+  }
+
+  async function applyProfile() {
+    setApplyingProfile(true)
+    setActionError('')
+    try {
+      await profileApi.setActive(profileToApply)
+      setActiveProfile(profileToApply)
+      setSelectedProfile(profileToApply)
+      setProfiles((current) => current.map((profile) => ({ ...profile, active: profile.name === profileToApply })))
+      setSearch('')
+      setNotice(`${profileToApply} profile applied for future shell sessions.`)
+    } catch (error) {
+      setActionError(messageFromError(error, 'Unable to apply this profile.'))
+    } finally {
+      setApplyingProfile(false)
+    }
+  }
+
+  function handleProfileTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    let nextIndex: number | undefined
+    if (event.key === 'ArrowRight') nextIndex = (index + 1) % profileTabNames.length
+    if (event.key === 'ArrowLeft') nextIndex = (index - 1 + profileTabNames.length) % profileTabNames.length
+    if (event.key === 'Home') nextIndex = 0
+    if (event.key === 'End') nextIndex = profileTabNames.length - 1
+    if (nextIndex === undefined) return
+    event.preventDefault()
+    selectProfile(profileTabNames[nextIndex])
+    document.getElementById(`profile-tab-${nextIndex}`)?.focus()
   }
 
   return (
@@ -380,18 +591,54 @@ export default function VariablesPage() {
         </div>
       </section>
 
-      <section aria-labelledby="variables-heading" className="overflow-hidden rounded-3xl border border-line bg-surface shadow-card">
-        <div className="flex flex-col gap-4 border-b border-line px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <div><div className="flex items-center gap-2"><h2 id="variables-heading" className="text-lg font-bold tracking-tight">Your variables</h2><span className="rounded-full bg-canvas px-2.5 py-1 text-xs font-bold text-muted">{variables.length}</span></div><p className="mt-1 text-sm text-muted">Only visible to your user account</p></div>
+      <div className="mb-4 flex flex-wrap items-end gap-3">
+        <Button type="button" variant="primary" onClick={() => setCreatingProfile(true)} icon={<Plus size={16} />}>Create profile</Button>
+        {profilesLoading && <span role="status" className="text-xs text-muted">Loading profiles…</span>}
+        {profilesError && <div role="alert" className="flex flex-1 items-center gap-2 rounded-xl bg-danger/5 px-3 py-2 text-sm text-danger"><CircleAlert size={16} />{profilesError}<Button type="button" className="ml-auto" onClick={() => void refreshProfiles()}>Retry profiles</Button></div>}
+        <div className="ml-auto flex flex-wrap items-end gap-2">
+          <label className="w-full sm:w-52">
+            <span className="field-label">Profile to apply</span>
+            <select className="field-input h-12" value={profileToApply} onChange={(event) => setProfileToApply(event.target.value)} disabled={profilesLoading}>
+              <option value={GENERAL_PROFILE}>{GENERAL_PROFILE}</option>
+              {visibleProfiles.map((profile) => <option key={profile.name} value={profile.name}>{profile.name}</option>)}
+            </select>
+          </label>
+          <Button type="button" variant="primary" className="h-12" onClick={() => void applyProfile()} disabled={profilesLoading || Boolean(profilesError) || applyingProfile || profileToApply === activeProfile} icon={<ArrowUpFromLine size={16} />}>{applyingProfile ? 'Applying…' : 'Apply profile'}</Button>
+        </div>
+      </div>
+
+      <section id="profile-panel" aria-label="Environment profiles" className="overflow-hidden rounded-3xl border border-line bg-surface shadow-card">
+        <div role="tablist" aria-label="Profiles" className="flex flex-wrap items-end border-b border-line bg-canvas/35 px-5 pt-2 sm:px-6">
+          <button id="profile-tab-0" type="button" role="tab" tabIndex={selectedProfile === GENERAL_PROFILE ? 0 : -1} aria-selected={selectedProfile === GENERAL_PROFILE} aria-controls="profile-content" onKeyDown={(event) => handleProfileTabKeyDown(event, 0)} onClick={() => selectProfile(GENERAL_PROFILE)} className={`-mb-px inline-flex min-h-11 items-center gap-2 border-b-2 px-4 py-2.5 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ink ${activeProfile === GENERAL_PROFILE ? 'border-b-4 font-extrabold text-ink' : selectedProfile === GENERAL_PROFILE ? 'border-secondary font-semibold text-ink' : 'border-transparent font-semibold text-muted hover:border-line hover:text-ink'}`} style={{ borderBottomColor: activeProfile === GENERAL_PROFILE ? profiles.find((profile) => profile.name === GENERAL_PROFILE)?.color : selectedProfile === GENERAL_PROFILE ? 'var(--color-secondary)' : undefined }} title={activeProfile === GENERAL_PROFILE ? 'Applied profile' : undefined}><span aria-hidden="true" className="size-2.5 rounded-full bg-primary" style={{ backgroundColor: profiles.find((profile) => profile.name === GENERAL_PROFILE)?.color }} />General{activeProfile === GENERAL_PROFILE && <span className="sr-only">, applied</span>}</button>
+          {visibleProfiles.map((profile, index) => {
+            const isApplied = activeProfile === profile.name
+            const isSelected = selectedProfile === profile.name
+            return <button id={`profile-tab-${index + 1}`} key={profile.name} type="button" role="tab" tabIndex={isSelected ? 0 : -1} aria-selected={isSelected} aria-controls="profile-content" onKeyDown={(event) => handleProfileTabKeyDown(event, index + 1)} onClick={() => selectProfile(profile.name)} className={`-mb-px inline-flex min-h-11 items-center gap-2 border-b-2 px-4 py-2.5 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ink ${isApplied ? 'border-b-4 font-extrabold text-ink' : isSelected ? 'border-secondary font-semibold text-ink' : 'border-transparent font-semibold text-muted hover:border-line hover:text-ink'}`} style={{ borderBottomColor: isApplied ? profile.color : isSelected ? 'var(--color-secondary)' : undefined }} title={isApplied ? 'Applied profile' : undefined}><span aria-hidden="true" className="size-2.5 rounded-full" style={{ backgroundColor: profile.color }} />{profile.name}{isApplied && <span className="sr-only">, applied</span>}</button>
+          })}
+        </div>
+        {selectedProfile !== GENERAL_PROFILE && <p className="px-6 pt-3 text-xs text-muted">{profiles.find((profile) => profile.name === selectedProfile)?.description || 'Profile variables can override shared General values.'}</p>}
+
+        <div id="profile-content" role="tabpanel" tabIndex={0} aria-labelledby={`profile-tab-${selectedTabIndex}`}>
+          <div className="flex flex-col gap-4 border-b border-line px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div><div className="flex items-center gap-2"><h2 id="variables-heading" className="text-lg font-bold tracking-tight">{selectedProfile === GENERAL_PROFILE ? 'Your variables' : `${selectedProfile} variables`}</h2><span className="rounded-full bg-canvas px-2.5 py-1 text-xs font-bold text-muted">{variables.length}</span></div><p className="mt-1 text-sm text-muted">{selectedProfile === GENERAL_PROFILE ? 'Shared variables inherited by profiles unless overridden' : 'Effective values include inherited General variables and profile-local overrides'}</p></div>
           <div className="flex flex-wrap gap-2">
-            {variables.length > 0 && <Button type="button" variant="danger" onClick={() => setConfirmingClear(true)} icon={<Trash2 size={16} />}>Clear custom env</Button>}
-            <Button type="button" onClick={() => void startImport()} disabled={importing} icon={<ArrowDownToLine size={16} />}>{importing ? 'Choosing file…' : 'Import .env'}</Button>
+            <details ref={profileActionsRef} className="relative">
+              <summary aria-label="Profile actions" className="inline-flex min-h-10 list-none cursor-pointer items-center gap-2 rounded-xl border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink [&::-webkit-details-marker]:hidden">
+                Profile actions <ChevronDown aria-hidden="true" size={15} />
+              </summary>
+              <div className="absolute right-0 top-full z-30 mt-2 min-w-52 rounded-xl border border-line bg-surface p-1.5 shadow-card">
+                <button type="button" className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-ink hover:bg-canvas disabled:cursor-not-allowed disabled:opacity-50" disabled={importing} onClick={() => { closeProfileActions(); void startImport() }}><ArrowDownToLine aria-hidden="true" size={15} />Import .env</button>
+                <button type="button" className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-ink hover:bg-canvas disabled:cursor-not-allowed disabled:opacity-50" disabled={localVariableCount === 0} onClick={() => { closeProfileActions(); setConfirmingClear(true) }}><Trash2 aria-hidden="true" size={15} />Clear profile variables</button>
+                {selectedProfile !== GENERAL_PROFILE && <button type="button" className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-danger hover:bg-danger/5" onClick={() => { closeProfileActions(); setProfileToDelete(selectedProfile) }}><Trash2 aria-hidden="true" size={15} />Delete profile</button>}
+              </div>
+            </details>
             <Button type="button" variant="primary" onClick={() => { setActionError(''); setEditor(null) }} icon={<Plus size={17} />}>Add variable</Button>
           </div>
         </div>
         {notice && <div role="status" className="flex items-center gap-2 border-b border-line bg-success/10 px-6 py-3 text-sm font-semibold text-ink"><Check className="text-success" size={16} />{notice}<button type="button" aria-label="Dismiss message" className="ml-auto rounded p-1 hover:bg-surface/70" onClick={() => setNotice('')}><X size={15} /></button></div>}
         {actionError && <div role="alert" className="flex items-start gap-2 border-b border-line bg-danger/5 px-6 py-3 text-sm text-danger"><CircleAlert size={16} className="mt-0.5 shrink-0" />{actionError}<button type="button" aria-label="Dismiss error" className="ml-auto rounded p-1 hover:bg-surface/70" onClick={() => setActionError('')}><X size={15} /></button></div>}
         <VariableCollection
+          profileName={selectedProfile}
           variables={variables}
           filteredVariables={filteredVariables}
           loading={loading}
@@ -403,6 +650,7 @@ export default function VariablesPage() {
           onEdit={setEditor}
           onDelete={setDeleting}
         />
+        </div>
       </section>
 
       <section aria-labelledby="shell-integration-heading" className="mt-6 overflow-hidden rounded-3xl border border-line bg-surface shadow-card">
@@ -450,10 +698,12 @@ export default function VariablesPage() {
       </section>
       <p className="mt-4 flex items-start gap-2 px-1 text-xs leading-5 text-muted"><Shield aria-hidden="true" size={14} className="mt-0.5 shrink-0" />Values are masked until you choose to reveal them. The app never runs the contents of imported files.</p>
 
-      {editor !== undefined && <VariableEditor variable={editor} variables={variables} onClose={() => setEditor(undefined)} onSaved={refresh} />}
+      {editor !== undefined && <VariableEditor profileName={selectedProfile} variable={editor} variables={variables} onClose={() => setEditor(undefined)} onSaved={refresh} />}
+      {creatingProfile && <ProfileEditor profiles={profiles} onClose={() => setCreatingProfile(false)} onCreated={createdProfile} />}
       {deleting && <DeleteConfirmation variable={deleting} onCancel={() => setDeleting(null)} onConfirm={removeVariable} />}
-      {confirmingClear && <ClearVariablesConfirmation variableCount={variables.length} onCancel={() => setConfirmingClear(false)} onConfirm={clearSavedVariables} />}
-      {preview && <ImportDialog preview={preview} onClose={() => setPreview(null)} onApply={imported} />}
+      {confirmingClear && <ClearVariablesConfirmation variableCount={localVariableCount} profileName={selectedProfile} onCancel={() => setConfirmingClear(false)} onConfirm={clearSavedVariables} />}
+      {profileToDelete && <DeleteProfileConfirmation profileName={profileToDelete} variableCount={localVariableCount} onCancel={() => setProfileToDelete(null)} onConfirm={() => deleteProfile(profileToDelete)} />}
+      {preview && <ImportDialog preview={preview} profileName={selectedProfile} onClose={() => setPreview(null)} onApply={imported} />}
     </WorkspaceLayout>
   )
 }
