@@ -145,5 +145,45 @@ The diagram shows two boundaries: imports are parsed and reviewed before storage
 
 - `src/api.ts` is the typed Tauri command boundary; components do not invoke native commands directly.
 - `src/components/` uses a lightweight atoms/molecules/organisms/templates/pages organization.
-- `src-tauri/src/lib.rs` contains independently tested key validation, parsing, merge rules, atomic persistence, and thin Tauri commands.
+- `src-tauri/src/` contains the Tauri commands, domain logic, models, shell integration, app state, and storage implementation. The Rust domain, parser, and storage behavior have backend tests.
 - Import paths in frontend code use the `@/*` alias for `src/*`.
+
+### Project structure
+
+```text
+.
+├── .github/workflows/       # CI and release automation
+├── src/                     # React and TypeScript frontend
+│   ├── components/
+│   │   ├── atoms/           # Button, modal
+│   │   ├── molecules/       # Variable row
+│   │   ├── organisms/       # Variable collection
+│   │   ├── templates/       # Workspace layout
+│   │   └── pages/           # Variables page and UI tests
+│   ├── test/                # Shared frontend test setup
+│   ├── api.ts               # Typed Tauri command API
+│   ├── api.test.ts
+│   ├── main.tsx
+│   ├── styles.css
+│   └── types.ts
+├── src-tauri/               # Tauri v2 and Rust backend
+│   ├── capabilities/        # Tauri permissions
+│   ├── src/
+│   │   ├── commands.rs      # Tauri command handlers
+│   │   ├── domain.rs        # Validation, parsing, and profile rules
+│   │   ├── lib.rs           # Backend setup and module wiring
+│   │   ├── main.rs          # Desktop application entry point
+│   │   ├── models.rs        # API, profile, store, and import data types
+│   │   ├── shell.rs         # Bash/Zsh integration and export
+│   │   ├── state.rs         # Shared app state and store synchronization locks
+│   │   └── storage.rs       # Encrypted persistence
+│   ├── build.rs
+│   ├── Cargo.toml
+│   └── tauri.conf.json
+├── Makefile                 # Development, checks, and build tasks
+├── index.html
+├── package.json
+├── pnpm-lock.yaml
+├── vite.config.ts
+└── README.md
+```
