@@ -1,6 +1,6 @@
 [package]
 name = "linux-env-manager"
-version = "0.5.0"
+version = "0.6.0"
 description = "A user-scoped Linux environment variable manager"
 authors = ["Linux Environment Manager contributors"]
 edition = "2021"

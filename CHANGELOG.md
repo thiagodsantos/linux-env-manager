@@ -2,6 +2,13 @@
 
 Notable changes to Linux Environment Manager are documented here. This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and uses semantic versioning.
 
+## [0.6.0](https://github.com/thiagodsantos/linux-env-manager/compare/linux-env-manager-v0.5.0...linux-env-manager-v0.6.0) (2026-11-04)
+
+
+### Features
+
+* planning ([bcf6141](https://github.com/thiagodsantos/linux-env-manager/commit/bcf6141f874f492d773c3837889ae9f5c8486951))
+
 ## [0.5.0] - 2026-11-03
 
 ### Added
