@@ -2,6 +2,8 @@
 
 A small Tauri v2 desktop app for managing **user-scoped, app-owned environment profiles**. Add, edit, delete (with confirmation), and import variables from a `.env` file.
 
+![Linux Environment Manager interface showing profiles, variables, and shell integration](demo.png)
+
 > **Important:** Linux environment variables belong to processes. Saving updates this app's user-scoped store; it does not change this running app, existing terminals, or other processes. Bash/Zsh startup integration is available separately and is always opt-in. The app never edits `/etc/environment` or system-wide configuration.
 
 The interface uses Inter from Google Fonts and falls back to the system sans-serif font. When online, the WebView requests the font from Google Fonts; variable data is not sent with that request.
