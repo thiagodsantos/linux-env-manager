@@ -111,6 +111,34 @@ make check           # lint, typecheck, tests, coverage, and Rust formatting
 
 The frontend uses Vitest, React Testing Library, and user-event. Rust domain/parser/storage tests run with `cargo test`; the frontend coverage report does not represent Rust coverage. `make check` is the documented local quality gate. PNPM is locked through `pnpm-lock.yaml`.
 
+## App flow
+
+```mermaid
+flowchart TD
+    User[User] --> UI[React profile and variable UI]
+    UI --> API[Typed Tauri API]
+    API --> Commands[Tauri commands]
+    Commands --> Domain[Rust validation and profile rules]
+    Domain --> Store[(Encrypted profile store)]
+    Store <-->|Encryption key| Keyring[Desktop keyring]
+
+    UI -->|Choose .env file| Picker[Native file picker]
+    Picker --> Parser[Parse as data]
+    Parser --> Preview[Review added, updated, and invalid keys]
+    Preview -->|Confirm import| Domain
+
+    Store --> Effective[General variables plus active profile overrides]
+    UI -->|Opt in to Bash or Zsh| Startup[Managed user startup-file block]
+    Startup --> Export[App export mode]
+    Export --> Store
+    Export --> Effective
+    Effective --> Future[New shell sessions and child commands]
+
+    UI -. does not change .-> Current[Already-running processes]
+```
+
+The diagram shows two boundaries: imports are parsed and reviewed before storage, and shell integration affects future sessions only—not processes that are already running.
+
 ## Architecture
 
 - `src/api.ts` is the typed Tauri command boundary; components do not invoke native commands directly.
